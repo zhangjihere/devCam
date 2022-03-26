@@ -30,11 +30,12 @@ import java.text.DecimalFormat;
  * <p>
  * Before getting exposure parameter values from an Exposure object, make sure it actually has the
  * explicit values by
- *    (1) checking hasVariableValues()
- *        and if true, (2) generating explicit values from a CaptureResult using fixValues().
+ * (1) checking hasVariableValues()
+ * and if true, (2) generating explicit values from a CaptureResult using fixValues().
  * </p>
  */
 public class Exposure {
+    public final static String APP_TAG = "Exposure";
 
     /**
      * Flag to indicate construction of an Exposure with all variable values equal to AUTO
@@ -51,15 +52,16 @@ public class Exposure {
     private ExposureParameterVariable mFocusDistanceVar = null;
 
     // Explicit, numeric values of the parameters
-	private Long mExposureTime;
-	private Integer mSensitivity;
-	private Float mAperture;
-	private Float mFocalLength;
-	private Float mFocusDistance;
+    private Long mExposureTime;
+    private Integer mSensitivity;
+    private Float mAperture;
+    private Float mFocalLength;
+    private Float mFocusDistance;
 
 
-	// - - - - - Constructors - - - - -
-	public Exposure(){} // Empty constructor
+    // - - - - - Constructors - - - - -
+    public Exposure() {
+    } // Empty constructor
 
     /**
      * Constructor to generate an Exposure from a CaptureResult.
@@ -67,14 +69,14 @@ public class Exposure {
      * <p>Pulls the photographic parameters used in that capture and places them explicitly in the
      * appropriate fields of this Exposure.</p>
      */
-	public Exposure(CaptureResult cr){
+    public Exposure(CaptureResult cr) {
         this();
-		mExposureTime = cr.get(CaptureResult.SENSOR_EXPOSURE_TIME);
-		mSensitivity = cr.get(CaptureResult.SENSOR_SENSITIVITY);
-		mAperture = cr.get(CaptureResult.LENS_APERTURE);
-		mFocalLength = cr.get(CaptureResult.LENS_FOCAL_LENGTH);
-		mFocusDistance = cr.get(CaptureResult.LENS_FOCUS_DISTANCE);
-	}
+        mExposureTime = cr.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+        mSensitivity = cr.get(CaptureResult.SENSOR_SENSITIVITY);
+        mAperture = cr.get(CaptureResult.LENS_APERTURE);
+        mFocalLength = cr.get(CaptureResult.LENS_FOCAL_LENGTH);
+        mFocusDistance = cr.get(CaptureResult.LENS_FOCUS_DISTANCE);
+    }
 
     /**
      * Constructor to create an Exposure from a template constant.
@@ -82,7 +84,7 @@ public class Exposure {
      * @param flag Template constant for producing a standard Exposure. Currently, only
      *             {@link #ALL_AUTO} is supported.
      */
-    public Exposure(String flag){
+    public Exposure(String flag) {
         this();
         if (flag.equals(Exposure.ALL_AUTO)) {
             mHasVariables = true;
@@ -95,52 +97,51 @@ public class Exposure {
     }
 
     /**
-     *  Copy constructor to create an Exposure from another Exposure.
+     * Copy constructor to create an Exposure from another Exposure.
      *
-     *  <p>This copies the values, not the references of the internal fields, so that if, for
-     *  example, the original Exposure has its variable values fixed to explicit ones after
-     *  copying, the same doesn't happen to the new one.</p>
+     * <p>This copies the values, not the references of the internal fields, so that if, for
+     * example, the original Exposure has its variable values fixed to explicit ones after
+     * copying, the same doesn't happen to the new one.</p>
      */
-    public Exposure(Exposure e){
+    public Exposure(Exposure e) {
         this();
 
         // Copy any explicit values first
-        if (e.getExposureTime() != null){
-            this.setExposureTime(Long.valueOf(e.getExposureTime()));
+        if (e.getExposureTime() != null) {
+            this.setExposureTime(e.getExposureTime());
         }
         if (e.getAperture() != null) {
-            this.setAperture(Float.valueOf(e.getAperture()));
+            this.setAperture(e.getAperture());
         }
-        if (e.getFocalLength() != null){
-            this.setFocalLength(Float.valueOf(e.getFocalLength()));
+        if (e.getFocalLength() != null) {
+            this.setFocalLength(e.getFocalLength());
         }
-        if (e.getFocusDistance() != null){
-            this.setFocusDistance(Float.valueOf(e.getFocusDistance()));
+        if (e.getFocusDistance() != null) {
+            this.setFocusDistance(e.getFocusDistance());
         }
-        if (e.getSensitivity() != null){
-            this.setSensitivity(Integer.valueOf(e.getSensitivity()));
+        if (e.getSensitivity() != null) {
+            this.setSensitivity(e.getSensitivity());
         }
 
         // Now copy any variable values, if they exist
-        if (e.hasVariableAperture()){
+        if (e.hasVariableAperture()) {
             this.recordApertureVar(e.getApertureString());
         }
-        if (e.hasVariableExposureTime()){
+        if (e.hasVariableExposureTime()) {
             this.recordExposureTimeVar(e.getExposureTimeString());
         }
-        if (e.hasVariableFocalLength()){
+        if (e.hasVariableFocalLength()) {
             this.recordFocalLengthVar(e.getFocalLengthString());
         }
-        if (e.hasVariableFocusDistance()){
+        if (e.hasVariableFocusDistance()) {
             this.recordFocusDistanceVar(e.getFocusDistanceString());
         }
-        if (e.hasVariableSensitivity()){
+        if (e.hasVariableSensitivity()) {
             this.recordSensitivityVar(e.getSensitivityString());
         }
     }
 
     // - - - - -  end constructors - - - - -
-
 
 
     /**
@@ -149,45 +150,44 @@ public class Exposure {
      *
      * <p>After running this, this Exposure will report having no variable values.</p>
      *
-     * @param camChars Characteristics object for this camera, used for device bounds.
+     * @param camChars   Characteristics object for this camera, used for device bounds.
      * @param autoResult CaptureResult from a recent camera frame which used the AE/AF routines.
-     *
      */
-    public void fixValues(CameraCharacteristics camChars, CaptureResult autoResult){
-        Log.v(DevCam.APP_TAG,"Fixing Values in Exposure.");
+    public void fixValues(CameraCharacteristics camChars, CaptureResult autoResult) {
+        Log.v(APP_TAG, "Fixing Values in Exposure.");
         // Check to see if exposure time is variable-based
-        if (mExposureTimeVar != null){
+        if (mExposureTimeVar != null) {
             float coeff = mExposureTimeVar.getMultiplier();
-                double value = coeff * autoResult.get(CaptureResult.SENSOR_EXPOSURE_TIME);
-                mExposureTime = (long) value;
+            double value = coeff * autoResult.get(CaptureResult.SENSOR_EXPOSURE_TIME);
+            mExposureTime = (long) value;
         }
 
         // Check to see if sensitivity/ISO is variable-based
-        if (mSensitivityVar != null){
+        if (mSensitivityVar != null) {
             float coeff = mSensitivityVar.getMultiplier();
-                double value = coeff * autoResult.get(CaptureResult.SENSOR_SENSITIVITY);
-                mSensitivity = (int) value;
+            double value = coeff * autoResult.get(CaptureResult.SENSOR_SENSITIVITY);
+            mSensitivity = (int) value;
         }
 
         // Check to see if aperture is variable-based
-        if (mApertureVar != null){
+        if (mApertureVar != null) {
             float coeff = mApertureVar.getMultiplier();
-                double value = coeff * autoResult.get(CaptureResult.LENS_APERTURE);
-                mAperture = (float) value;
+            double value = coeff * autoResult.get(CaptureResult.LENS_APERTURE);
+            mAperture = (float) value;
         }
 
         // Check to see if focal length is variable-based
-        if (mFocalLengthVar != null){
+        if (mFocalLengthVar != null) {
             float coeff = mFocalLengthVar.getMultiplier();
             double value = coeff * autoResult.get(CaptureResult.LENS_FOCAL_LENGTH);
-                mFocalLength = (float) value;
+            mFocalLength = (float) value;
         }
 
         // Check to see if focus distance is variable-based
-        if (mFocusDistanceVar != null){
+        if (mFocusDistanceVar != null) {
             float coeff = mFocusDistanceVar.getMultiplier();
-                double value = coeff * autoResult.get(CaptureResult.LENS_FOCUS_DISTANCE);
-                mFocusDistance = (float) value;
+            double value = coeff * autoResult.get(CaptureResult.LENS_FOCUS_DISTANCE);
+            mFocusDistance = (float) value;
         }
         mHasVariables = false;
     }
@@ -195,18 +195,14 @@ public class Exposure {
 
     // String form just simply displays the parameters prettily
     @Override
-    public String toString(){
+    public String toString() {
         // Display the variable values if they exist. Otherwise, display the literals that should exist.
-        String stringform =
-                ((mExposureTimeVar!=null)? mExposureTimeVar + ", " : CameraReport.nsToString(mExposureTime) + ", ") +
-                ((mSensitivityVar!=null)? mSensitivityVar + ", " : "ISO " + mSensitivity + ", ") +
-                ((mFocusDistanceVar!=null)? mFocusDistanceVar + ", " : CameraReport.diopterToMeters(mFocusDistance)+ ", ") +
-                ((mApertureVar!=null)? mApertureVar + ", " : "f" + mAperture + ", ") +
-                ((mFocalLengthVar!=null)? mFocalLengthVar + ", " : mFocalLength + "mm");
-
-        return stringform;
+        return ((mExposureTimeVar != null) ? mExposureTimeVar + ", " : CameraReport.nsToString(mExposureTime) + ", ") +
+                ((mSensitivityVar != null) ? mSensitivityVar + ", " : "ISO " + mSensitivity + ", ") +
+                ((mFocusDistanceVar != null) ? mFocusDistanceVar + ", " : CameraReport.diopterToMeters(mFocusDistance) + ", ") +
+                ((mApertureVar != null) ? mApertureVar + ", " : "f" + mAperture + ", ") +
+                ((mFocalLengthVar != null) ? mFocalLengthVar + ", " : mFocalLength + "mm");
     }
-
 
 
     // The following functions are used to get a string representation of the fields, without having
@@ -218,9 +214,8 @@ public class Exposure {
      *
      * @return String indicating the exposure time of this Exposure.
      */
-    public String getExposureTimeString(){
-        String s = (mExposureTimeVar!=null)? mExposureTimeVar.toString() : CameraReport.nsToString(mExposureTime);
-        return s;
+    public String getExposureTimeString() {
+        return (mExposureTimeVar != null) ? mExposureTimeVar.toString() : CameraReport.nsToString(mExposureTime);
     }
 
     /**
@@ -229,8 +224,8 @@ public class Exposure {
      *
      * @return String indicating the aperture of this Exposure.
      */
-    public String getApertureString(){
-        return (mApertureVar!=null)? mApertureVar.toString() : "f" + mAperture;
+    public String getApertureString() {
+        return (mApertureVar != null) ? mApertureVar.toString() : "f" + mAperture;
     }
 
     /**
@@ -239,8 +234,8 @@ public class Exposure {
      *
      * @return String indicating the ISO of this Exposure.
      */
-    public String getSensitivityString(){
-        return (mSensitivityVar!=null)? mSensitivityVar.toString() : mSensitivity.toString();
+    public String getSensitivityString() {
+        return (mSensitivityVar != null) ? mSensitivityVar.toString() : mSensitivity.toString();
     }
 
     /**
@@ -249,8 +244,8 @@ public class Exposure {
      *
      * @return String indicating the focal length of this Exposure.
      */
-    public String getFocalLengthString(){
-        return (mFocalLengthVar!=null)? mFocalLengthVar.toString() : mFocalLength + " mm";
+    public String getFocalLengthString() {
+        return (mFocalLengthVar != null) ? mFocalLengthVar.toString() : mFocalLength + " mm";
     }
 
     /**
@@ -259,12 +254,12 @@ public class Exposure {
      *
      * @return String indicating the focus distance of this Exposure.
      */
-    public String getFocusDistanceString(){
-        return (mFocusDistanceVar!=null)? mFocusDistanceVar.toString() : CameraReport.diopterToMeters(mFocusDistance);
+    public String getFocusDistanceString() {
+        return (mFocusDistanceVar != null) ? mFocusDistanceVar.toString() : CameraReport.diopterToMeters(mFocusDistance);
     }
 
 
-	/* - - - - - Setters and Getters - - - - -
+    /* - - - - - Setters and Getters - - - - -
      * Note that the following use "set"/"get" for literal parameter values, and "record" for
      * variable (string) parameter values. Effectively, the Exposure doesn't have any literal values
      * until they have been set, either with the set() functions or fixExposure(), above.
@@ -279,9 +274,9 @@ public class Exposure {
      *
      * @see #hasVariableExposureTime()
      */
-	public Long getExposureTime() {
-		return mExposureTime;
-	}
+    public Long getExposureTime() {
+        return mExposureTime;
+    }
 
     /**
      * Get the explicit value of the ISO/sensitivity.
@@ -332,40 +327,40 @@ public class Exposure {
      *
      * <p>This overwrites any existing variable value the parameter has.</p>
      */
-	public void setExposureTime(Long exposureTime) {
-		mExposureTime = exposureTime;
+    public void setExposureTime(Long exposureTime) {
+        mExposureTime = exposureTime;
         mExposureTimeVar = null;
         checkIfHasVariableValues();
-	}
+    }
 
     /**
      * Set the explicit value of the sensitivity.
      *
      * <p>This overwrites any existing variable value the parameter has.</p>
      */
-	public void setSensitivity(Integer sensitivity) {
-		mSensitivity = sensitivity;
+    public void setSensitivity(Integer sensitivity) {
+        mSensitivity = sensitivity;
         mSensitivityVar = null;
         checkIfHasVariableValues();
-	}
+    }
 
     /**
      * Set the explicit value of the aperture.
      *
      * <p>This overwrites any existing variable value the parameter has.</p>
      */
-	public void setAperture(Float aperture) {
-		mAperture = aperture;
+    public void setAperture(Float aperture) {
+        mAperture = aperture;
         mApertureVar = null;
         checkIfHasVariableValues();
-	}
+    }
 
     /**
      * Set the explicit value of the focal length.
      *
      * <p>This overwrites any existing variable value the parameter has.</p>
      */
-	public void setFocalLength(Float focalLength) {
+    public void setFocalLength(Float focalLength) {
         mFocalLength = focalLength;
         mFocalLengthVar = null;
         checkIfHasVariableValues();
@@ -376,11 +371,11 @@ public class Exposure {
      *
      * <p>This overwrites any existing variable value the parameter has.</p>
      */
-	public void setFocusDistance(Float focusDistance) {
-		mFocusDistance = focusDistance;
+    public void setFocusDistance(Float focusDistance) {
+        mFocusDistance = focusDistance;
         mFocusDistanceVar = null;
         checkIfHasVariableValues();
-	}
+    }
 
 
     // As soon as any parameter has a variable value, this exposure is "not legit" and will need
@@ -392,7 +387,7 @@ public class Exposure {
      *
      * <p>This overwrites any existing explicit value this parameter, setting it to null.</p>
      */
-    public void recordExposureTimeVar(String var){
+    public void recordExposureTimeVar(String var) {
         mExposureTimeVar = new ExposureParameterVariable(var);
         mExposureTime = null;
         mHasVariables = true;
@@ -403,7 +398,7 @@ public class Exposure {
      *
      * <p>This overwrites any existing explicit value this parameter, setting it to null.</p>
      */
-    public void recordSensitivityVar(String var){
+    public void recordSensitivityVar(String var) {
         mSensitivityVar = new ExposureParameterVariable(var);
         mSensitivity = null;
         mHasVariables = true;
@@ -414,7 +409,7 @@ public class Exposure {
      *
      * <p>This overwrites any existing explicit value this parameter, setting it to null.</p>
      */
-    public void recordApertureVar(String var){
+    public void recordApertureVar(String var) {
         mApertureVar = new ExposureParameterVariable(var);
         mAperture = null;
         mHasVariables = true;
@@ -425,7 +420,7 @@ public class Exposure {
      *
      * <p>This overwrites any existing explicit value this parameter, setting it to null.</p>
      */
-    public void recordFocalLengthVar(String var){
+    public void recordFocalLengthVar(String var) {
         mFocalLengthVar = new ExposureParameterVariable(var);
         mFocalLength = null;
         mHasVariables = true;
@@ -436,7 +431,7 @@ public class Exposure {
      *
      * <p>This overwrites any existing explicit value this parameter, setting it to null.</p>
      */
-    public void recordFocusDistanceVar(String var){
+    public void recordFocusDistanceVar(String var) {
         mFocusDistanceVar = new ExposureParameterVariable(var);
         mFocusDistance = null;
         mHasVariables = true;
@@ -450,7 +445,9 @@ public class Exposure {
      * <p> Note that if this is true, trying to get explicit parameter values may return some null
      * values.</p>
      */
-    public boolean hasVariableValues(){return mHasVariables;}
+    public boolean hasVariableValues() {
+        return mHasVariables;
+    }
 
 
     // Likewise, these functions are public for simply poling if each individual param is variable
@@ -460,36 +457,45 @@ public class Exposure {
      *
      * <p>Note that if true, then it does NOT have a valid explicit value for this parameter.</p>
      */
-    public boolean hasVariableExposureTime(){return mExposureTimeVar!=null;}
+    public boolean hasVariableExposureTime() {
+        return mExposureTimeVar != null;
+    }
 
     /**
      * Indicates if this Exposure has a variable aperture value.
      *
      * <p>Note that if true, then it does NOT have a valid explicit value for this parameter.</p>
      */
-    public boolean hasVariableAperture(){return mApertureVar!=null;}
+    public boolean hasVariableAperture() {
+        return mApertureVar != null;
+    }
 
     /**
      * Indicates if this Exposure has a variable sensitivity/ISO value.
      *
      * <p>Note that if true, then it does NOT have a valid explicit value for this parameter.</p>
      */
-    public boolean hasVariableSensitivity(){return mSensitivityVar!=null;}
+    public boolean hasVariableSensitivity() {
+        return mSensitivityVar != null;
+    }
 
     /**
      * Indicates if this Exposure has a variable focus distance value.
      *
      * <p>Note that if true, then it does NOT have a valid explicit value for this parameter.</p>
      */
-    public boolean hasVariableFocusDistance(){return mFocusDistanceVar!=null;}
+    public boolean hasVariableFocusDistance() {
+        return mFocusDistanceVar != null;
+    }
 
     /**
      * Indicates if this Exposure has a variable focal length value.
      *
      * <p>Note that if true, then it does NOT have a valid explicit value for this parameter.</p>
      */
-    public boolean hasVariableFocalLength(){return mFocalLengthVar!=null;}
-
+    public boolean hasVariableFocalLength() {
+        return mFocalLengthVar != null;
+    }
 
 
     // This is the internal function for seeing if this Exposure has variable values left, and
@@ -498,30 +504,28 @@ public class Exposure {
     /**
      * Sets the internal flag for this Exposure indicating if it has any variable parameters or not.
      */
-    private void checkIfHasVariableValues(){
-        if (mExposureTimeVar==null
-                && mSensitivityVar==null
-                && mApertureVar==null
-                && mFocalLengthVar==null
-                && mFocusDistanceVar==null){
+    private void checkIfHasVariableValues() {
+        if (mExposureTimeVar == null
+                && mSensitivityVar == null
+                && mApertureVar == null
+                && mFocalLengthVar == null
+                && mFocusDistanceVar == null) {
             mHasVariables = false;
         }
     }
 
 
-
-
     /**
-     *  Class representing variable parameters for the fields of an Exposure.
+     * Class representing variable parameters for the fields of an Exposure.
      *
-     *  <p>This class incorporates all the work involved in parsing strings for valid variable
-     *  values, and stores the two relevant components of each instance. The user can get these
-     *  multiplier and variable fields using the appropriate get() methods.</p>
+     * <p>This class incorporates all the work involved in parsing strings for valid variable
+     * values, and stores the two relevant components of each instance. The user can get these
+     * multiplier and variable fields using the appropriate get() methods.</p>
      */
     static public class ExposureParameterVariable {
 
-        private Float multiplier;
-        private String variable;
+        private final Float multiplier;
+        private final String variable;
 
         // Constructor based on parsing an input string of the right format
 
@@ -534,10 +538,10 @@ public class Exposure {
          *              and the symbol is as described above (the square brackets are excluded). If
          *              an input is invalid, will just return a object that treats the input as "A".
          */
-        ExposureParameterVariable(String input){
+        ExposureParameterVariable(String input) {
             // First, make sure input is correct. Should have already been checked, actually.
-            if (!checkFeasibleInput(input)){
-                Log.e(DevCam.APP_TAG,"Input string to Parameter Variable was malformed! Using Default.");
+            if (!checkFeasibleInput(input)) {
+                Log.e(APP_TAG, "Input string to Parameter Variable was malformed! Using Default.");
                 multiplier = 1.0f;
                 variable = "Auto";
                 return;
@@ -546,7 +550,7 @@ public class Exposure {
             // So, assuming we have a correctly formatted input, it must be either "[num]*[string]"
             // or simply "[string]" with the correct formatting. So if there is a coeff and asterisk
             // we should split on it, otherwise keep the whole thing.
-            if (input.contains("*")){
+            if (input.contains("*")) {
                 String[] parts = input.split("\\s*\\*\\s*");
                 multiplier = Float.valueOf(parts[0]);
                 variable = parts[1];
@@ -578,14 +582,13 @@ public class Exposure {
          * Checks to see if a string appropriately matches a pattern than can be read into an
          * ExposureParameterVariable.
          */
-        public static boolean checkFeasibleInput(String input){
+        public static boolean checkFeasibleInput(String input) {
             // The following expression matches any string that ends in either:
             // "a","A","auto","AUTO", "Auto" (or even "aUTO")
             // and also may have all of: a number consisting of "[some digits].[some digits]*"
             // Cannot have "[some digits].*" or "*" or ".[some digits]*"
             // Thus must have leading 0 for decimals.
-            boolean truth = input.matches("([0-9]+?(\\.[0-9]+?)?\\*)?[Aa]((UTO)|(uto))?");
-            return truth;
+            return input.matches("([0-9]+?(\\.[0-9]+?)?\\*)?[Aa]((UTO)|(uto))?");
         }
 
 

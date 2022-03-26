@@ -24,10 +24,7 @@ import android.hardware.camera2.CameraMetadata;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Range;
-import android.view.KeyEvent;
-import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -40,9 +37,8 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.xml.transform.Templates;
-
 public class GenerateDesignFromTemplateActivity extends Activity {
+    public final static String APP_TAG = "GenerateDTActivity";
 
     // These tags are used to indicate the nature of the data returned by this Activity to the
     // main Activity via the Intent.putExtra() method.
@@ -65,15 +61,19 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         private final int index;
 
         // Constructor for initialized value
-        private DesignTemplate(int ind){this.index = ind;}
+        DesignTemplate(int ind) {
+            this.index = ind;
+        }
 
-        public int getIndex(){return index;}
+        public int getIndex() {
+            return index;
+        }
 
         // Static function for finding the Template enum by its int value
-        public static DesignTemplate getTemplateByIndex(int ind){
+        public static DesignTemplate getTemplateByIndex(int ind) {
             DesignTemplate output = null;
-            for (DesignTemplate t: DesignTemplate.values()){
-                if (t.getIndex()==ind){
+            for (DesignTemplate t : DesignTemplate.values()) {
+                if (t.getIndex() == ind) {
                     output = t;
                 }
             }
@@ -81,9 +81,9 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         }
 
         @Override
-        public String toString(){
+        public String toString() {
             String output;
-            switch (this){
+            switch (this) {
                 case BURST:
                     output = "Burst of Auto-Exposures";
                     break;
@@ -113,7 +113,7 @@ public class GenerateDesignFromTemplateActivity extends Activity {
     }
 
     // Used to make a list of the above Templates, for an ArrayAdapter for a ListView
-    List<DesignTemplate> mDesignTemplateList = new ArrayList<DesignTemplate>();
+    List<DesignTemplate> mDesignTemplateList = new ArrayList<>();
 
     CameraCharacteristics mCamChars;    // used for device capability bound display
 
@@ -137,9 +137,9 @@ public class GenerateDesignFromTemplateActivity extends Activity {
 
 
     @Override
-    public void onCreate(Bundle savedInstanceState){
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.v(DevCamActivity.APP_TAG,"GenerateDesignFromTemplate Activity Created.");
+        Log.v(APP_TAG, "GenerateDesignFromTemplate Activity Created.");
 
         // Hide the action bar so the activity gets the full screen
         getActionBar().hide();
@@ -147,14 +147,14 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         // Set the correct layout for this Activity
         setContentView(R.layout.design_template_selector);
 
-        mDeviceBoundTextView = (TextView) findViewById(R.id.deviceBoundTextView);
-        mUnitsTextView = (TextView) findViewById(R.id.unitsTextView);
+        mDeviceBoundTextView = findViewById(R.id.deviceBoundTextView);
+        mUnitsTextView = findViewById(R.id.unitsTextView);
 
         // Set the Array Adapter to the list of options
-        mTemplateListView = (ListView) findViewById(R.id.DesignTemplateListView);
-        mTemplateListViewAdapter=new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1);
-        List<String> stringList= new ArrayList<String>();
-        for (DesignTemplate t : DesignTemplate.values()){
+        mTemplateListView = findViewById(R.id.DesignTemplateListView);
+        mTemplateListViewAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1);
+        List<String> stringList = new ArrayList<>();
+        for (DesignTemplate t : DesignTemplate.values()) {
             stringList.add(t.toString());
             mDesignTemplateList.add(t);
         }
@@ -164,249 +164,226 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         // when one of them is selected
         mTemplateListViewAdapter.addAll(stringList);
         mTemplateListView.setAdapter(mTemplateListViewAdapter);
-        mTemplateListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                // When an item from the list has been selected, change the units in the display
-                // appropriately and record which DesignTemplate was selected.
-                Log.v(DevCamActivity.APP_TAG,"Clicked list position : " + position);
-                parent.setSelection(position); //highlight which was selected
+        mTemplateListView.setOnItemClickListener((parent, view, position, id) -> {
+            // When an item from the list has been selected, change the units in the display
+            // appropriately and record which DesignTemplate was selected.
+            Log.v(APP_TAG, "Clicked list position : " + position);
+            parent.setSelection(position); //highlight which was selected
 
-                // Now that template has been selected, let user put in params
-                mParamsLayout.setAlpha(1.0f);
-                mHighEditText.setEnabled(true);
-                mLowEditText.setEnabled(true);
-                mNexpEditText.setEnabled(true);
-                mDeviceBoundTextView.setText("");
+            // Now that template has been selected, let user put in params
+            mParamsLayout.setAlpha(1.0f);
+            mHighEditText.setEnabled(true);
+            mLowEditText.setEnabled(true);
+            mNexpEditText.setEnabled(true);
+            mDeviceBoundTextView.setText("");
 
-                // Also, since there could have been values put in before from a previously selected
-                // Template, make sure they are all reset
-                mSelectedNexp = null;
-                mSelectedLowBound = null;
-                mSelectedHighBound = null;
-                mHighEditText.setText("");
-                mLowEditText.setText("");
-                mNexpEditText.setText("");
+            // Also, since there could have been values put in before from a previously selected
+            // Template, make sure they are all reset
+            mSelectedNexp = null;
+            mSelectedLowBound = null;
+            mSelectedHighBound = null;
+            mHighEditText.setText("");
+            mLowEditText.setText("");
+            mNexpEditText.setText("");
 
-                // Turn off ability to generate template, since no params set yet
-                mGenerateDesignButton.setAlpha(0.5f);
-                mGenerateDesignButton.setClickable(false);
+            // Turn off ability to generate template, since no params set yet
+            mGenerateDesignButton.setAlpha(0.5f);
+            mGenerateDesignButton.setClickable(false);
 
-                // Now switch the rest of the views depending on the Template selected
-                mSelectedTemplateInd = position;
-                switch (mDesignTemplateList.get(position)) {
-                    case BURST:
-                        mUnitsTextView.setText("N/A");
-                        // burst template has no need for bounds, so set them unclickable so as
-                        // not to tempt the user. But still set values, so they aren't null.
-                        mLowEditText.setEnabled(false);
-                        mHighEditText.setEnabled(false);
-                        mSelectedLowBound = 0.0f;
-                        mSelectedHighBound = 0.0f;
-                        break;
-                    case SPLIT_TIME:
-                        mUnitsTextView.setText("N/A");
-                        // split time template has no need for bounds, so set them unclickable so as
-                        // not to tempt the user. But still set values, so they aren't null.
-                        mLowEditText.setEnabled(false);
-                        mHighEditText.setEnabled(false);
-                        mSelectedLowBound = 0.0f;
-                        mSelectedHighBound = 0.0f;
-                        break;
-                    case RACK_FOCUS:
-                        mUnitsTextView.setText("m");
-                        // Set the device's actual bounds visible
-                        if (mCamChars!=null){
-                            Float minFoc = mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
-                            if (minFoc>0) {
-                                String bounds = "Device bounds:\n[" +
-                                        CameraReport.diopterToMeters(mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE))
-                                        +", "+ DecimalFormatSymbols.getInstance().getInfinity() + "]";
-                                // If these values are not actually meaningful, alert the user w/an asterisk
-                                if (mCamChars.get(CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION)
-                                        == CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED) {
-                                    bounds = bounds.concat("*");
-                                }
-                                mDeviceBoundTextView.setText(bounds);
+            // Now switch the rest of the views depending on the Template selected
+            mSelectedTemplateInd = position;
+            switch (mDesignTemplateList.get(position)) {
+                case BURST:
+                case SPLIT_TIME:
+                    mUnitsTextView.setText("N/A");
+                    // burst template/split time template has no need for bounds, so set them un-clickable so as
+                    // not to tempt the user. But still set values, so they aren't null.
+                    mLowEditText.setEnabled(false);
+                    mHighEditText.setEnabled(false);
+                    mSelectedLowBound = 0.0f;
+                    mSelectedHighBound = 0.0f;
+                    break;
+                case RACK_FOCUS:
+                    mUnitsTextView.setText("m");
+                    // Set the device's actual bounds visible
+                    if (mCamChars != null) {
+                        Float minFoc = mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+                        if (minFoc > 0) {
+                            String bounds = "Device bounds:\n[" +
+                                    CameraReport.diopterToMeters(mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE))
+                                    + ", " + DecimalFormatSymbols.getInstance().getInfinity() + "]";
+                            // If these values are not actually meaningful, alert the user w/an asterisk
+                            if (mCamChars.get(CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION)
+                                    == CameraCharacteristics.LENS_INFO_FOCUS_DISTANCE_CALIBRATION_UNCALIBRATED) {
+                                bounds = bounds.concat("*");
                             }
-                        }
-                        break;
-                    case BRACKET_EXPOSURE_TIME_ABSOLUTE:
-                        mUnitsTextView.setText("ns");
-                        // Set the device's actual bounds visible
-                        if (mCamChars!=null){
-                            String bounds = "Device bounds:\n" +
-                                    mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).toString();
                             mDeviceBoundTextView.setText(bounds);
                         }
-                        break;
-                    case BRACKET_ISO_ABSOLUTE:
-                        mUnitsTextView.setText("ISO");
-                        // Set the device's actual bounds visible
-                        if (mCamChars!=null){
-                            String bounds = "Device bounds:\n" +
-                                    mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).toString();
-                            mDeviceBoundTextView.setText(bounds);
-                        }
-                        break;
-                    case BRACKET_EXPOSURE_TIME_RELATIVE:
-                    case BRACKET_ISO_RELATIVE:
-                        mUnitsTextView.setText("stops around auto");
-                        break;
-                    default:
-                        mUnitsTextView.setText("?");
-                        // We shouldn't have reached this state, but if we do, make unclickable
-                        // fields again
-                        mParamsLayout.setAlpha(0.5f);
-                        mParamsLayout.setClickable(false);
-                }
+                    }
+                    break;
+                case BRACKET_EXPOSURE_TIME_ABSOLUTE:
+                    mUnitsTextView.setText("ns");
+                    // Set the device's actual bounds visible
+                    if (mCamChars != null) {
+                        String bounds = "Device bounds:\n" +
+                                mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).toString();
+                        mDeviceBoundTextView.setText(bounds);
+                    }
+                    break;
+                case BRACKET_ISO_ABSOLUTE:
+                    mUnitsTextView.setText("ISO");
+                    // Set the device's actual bounds visible
+                    if (mCamChars != null) {
+                        String bounds = "Device bounds:\n" +
+                                mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).toString();
+                        mDeviceBoundTextView.setText(bounds);
+                    }
+                    break;
+                case BRACKET_EXPOSURE_TIME_RELATIVE:
+                case BRACKET_ISO_RELATIVE:
+                    mUnitsTextView.setText("stops around auto");
+                    break;
+                default:
+                    mUnitsTextView.setText("?");
+                    // We shouldn't have reached this state, but if we do, make unclickable
+                    // fields again
+                    mParamsLayout.setAlpha(0.5f);
+                    mParamsLayout.setClickable(false);
             }
         });
 
 
         // Set up the EditText for the Number of Exposures field
-        mNexpEditText = (EditText) findViewById(R.id.nExpEditText);
+        mNexpEditText = findViewById(R.id.nExpEditText);
         mNexpEditText.setRawInputType(Configuration.KEYBOARD_12KEY);
-        mNexpEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    String s = v.getText().toString();
-                    try {
-                        mSelectedNexp = Integer.parseInt(s);
-                        // Don't let the user say 0 exposures, that is just dumb :-p
-                        if (mSelectedNexp == 0) {
-                            throw new NumberFormatException();
-                        }
-                    } catch (NumberFormatException nfe) {
-                        Toast.makeText(GenerateDesignFromTemplateActivity.this,
-                                "Please enter valid integer number of exposures.",
-                                Toast.LENGTH_SHORT).show();
-                        mSelectedNexp = null;
-                        mNexpEditText.setText("");
+        mNexpEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                String s = v.getText().toString();
+                try {
+                    mSelectedNexp = Integer.parseInt(s);
+                    // Don't let the user say 0 exposures, that is just dumb :-p
+                    if (mSelectedNexp == 0) {
+                        throw new NumberFormatException();
                     }
+                } catch (NumberFormatException nfe) {
+                    Toast.makeText(GenerateDesignFromTemplateActivity.this,
+                            "Please enter valid integer number of exposures.",
+                            Toast.LENGTH_SHORT).show();
+                    mSelectedNexp = null;
+                    mNexpEditText.setText("");
                 }
-                Log.v(DevCamActivity.APP_TAG, "nExp: " + mSelectedNexp);
-                checkIfReadyToGenerate();
-                return false;
             }
+            Log.v(APP_TAG, "nExp: " + mSelectedNexp);
+            checkIfReadyToGenerate();
+            return false;
         });
         //set unclickable until layout chosen, but first save key listener so it can be remade clickable
         mNexpEditText.setEnabled(false);
 
 
         // Set up the EditText for the Low Bound field
-        mLowEditText = (EditText) findViewById(R.id.lowEditText);
+        mLowEditText = findViewById(R.id.lowEditText);
         mLowEditText.setRawInputType(Configuration.KEYBOARD_12KEY);
-        mLowEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        mLowEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                String s = v.getText().toString();
+                try {
+                    float value = Float.parseFloat(s);
 
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId== EditorInfo.IME_ACTION_DONE){
-                    String s = v.getText().toString();
-                    try{
-                        float value = Float.parseFloat(s);
-
-                        // Now, if the value was literal and not relative, make sure it falls within
-                        // the bounds of what the device can apply, and update the view if needed.
-                        // Note we have to check that it falls within both bounds, just in case.
-                        switch (DesignTemplate.getTemplateByIndex(mSelectedTemplateInd)){
-                            case RACK_FOCUS:
-                                // input value is in meters, so convert min focus diopters to meters
-                                float minValue = 1/mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
-                                if (value<minValue){
-                                    value = minValue;
-                                    mLowEditText.setText(String.valueOf(value));
-                                }
-                                break;
-                            case BRACKET_EXPOSURE_TIME_ABSOLUTE:
-                                Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-                                if (!expRange.contains((long) value)){
-                                    value = expRange.getLower();
-                                    mLowEditText.setText(String.valueOf(expRange.getLower()));
-                                }
-                                break;
-                            case BRACKET_ISO_ABSOLUTE:
-                                Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-                                if (!isoRange.contains((int) value)){
-                                    value = isoRange.getLower();
-                                    mLowEditText.setText(String.valueOf(isoRange.getLower()));
-                                }
-                                break;
-                        }
-
-                        mSelectedLowBound = value;
-                    } catch (NumberFormatException nfe){
-                        Toast.makeText(GenerateDesignFromTemplateActivity.this,
-                                "Please enter valid real number for bound.",
-                                Toast.LENGTH_SHORT).show();
-                        mSelectedLowBound = null;
-                        mLowEditText.setText("");
+                    // Now, if the value was literal and not relative, make sure it falls within
+                    // the bounds of what the device can apply, and update the view if needed.
+                    // Note we have to check that it falls within both bounds, just in case.
+                    switch (DesignTemplate.getTemplateByIndex(mSelectedTemplateInd)) {
+                        case RACK_FOCUS:
+                            // input value is in meters, so convert min focus diopters to meters
+                            float minValue = 1 / mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+                            if (value < minValue) {
+                                value = minValue;
+                                mLowEditText.setText(String.valueOf(value));
+                            }
+                            break;
+                        case BRACKET_EXPOSURE_TIME_ABSOLUTE:
+                            Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                            if (!expRange.contains((long) value)) {
+                                value = expRange.getLower();
+                                mLowEditText.setText(String.valueOf(expRange.getLower()));
+                            }
+                            break;
+                        case BRACKET_ISO_ABSOLUTE:
+                            Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                            if (!isoRange.contains((int) value)) {
+                                value = isoRange.getLower();
+                                mLowEditText.setText(String.valueOf(isoRange.getLower()));
+                            }
+                            break;
                     }
+
+                    mSelectedLowBound = value;
+                } catch (NumberFormatException nfe) {
+                    Toast.makeText(GenerateDesignFromTemplateActivity.this,
+                            "Please enter valid real number for bound.",
+                            Toast.LENGTH_SHORT).show();
+                    mSelectedLowBound = null;
+                    mLowEditText.setText("");
                 }
-                Log.v(DevCamActivity.APP_TAG,"Low bound: " + mSelectedLowBound);
-                checkIfReadyToGenerate();
-                return false;
             }
+            Log.v(APP_TAG, "Low bound: " + mSelectedLowBound);
+            checkIfReadyToGenerate();
+            return false;
         });
         //set unclickable until layout chosen, but first save key listener so it can be remade clickable
         mLowEditText.setEnabled(false);
 
 
         // Set up the EditText for the High Bound field
-        mHighEditText = (EditText) findViewById(R.id.highEditText);
+        mHighEditText = findViewById(R.id.highEditText);
         mHighEditText.setRawInputType(Configuration.KEYBOARD_12KEY);
-        mHighEditText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        mHighEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                String s = v.getText().toString();
+                try {
+                    float value = Float.parseFloat(s);
 
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId== EditorInfo.IME_ACTION_DONE){
-                    String s = v.getText().toString();
-                    try{
-                        float value = Float.parseFloat(s);
-
-                        // Now, if the value was literal and not relative, make sure it falls within
-                        // the bounds of what the device can apply, and update the view if needed.
-                        // Note we have to check that it falls within both bounds, just in case.
-                        switch (DesignTemplate.getTemplateByIndex(mSelectedTemplateInd)){
-                            case RACK_FOCUS:
-                                // input value is in meters, so convert min focus diopters to meters
-                                float minValue = 1/mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
-                                if (value<minValue){
-                                    value = minValue;
-                                    mHighEditText.setText(String.valueOf(value));
-                                }
-                                break;
-                            case BRACKET_EXPOSURE_TIME_ABSOLUTE:
-                                Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
-                                if (!expRange.contains((long) value)){
-                                    value = expRange.getUpper();
-                                    mHighEditText.setText(String.valueOf(expRange.getUpper()));
-                                }
-                                break;
-                            case BRACKET_ISO_ABSOLUTE:
-                                Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
-                                if (!isoRange.contains((int) value)){
-                                    value = isoRange.getUpper();
-                                    mHighEditText.setText(String.valueOf(isoRange.getUpper()));
-                                }
-                                break;
-                        }
-
-                        mSelectedHighBound = value;
-                    } catch (NumberFormatException nfe){
-                        Toast.makeText(GenerateDesignFromTemplateActivity.this,
-                                "Please enter valid real number for bound.",
-                                Toast.LENGTH_SHORT).show();
-                        mSelectedHighBound = null;
-                        mHighEditText.setText("");
+                    // Now, if the value was literal and not relative, make sure it falls within
+                    // the bounds of what the device can apply, and update the view if needed.
+                    // Note we have to check that it falls within both bounds, just in case.
+                    switch (DesignTemplate.getTemplateByIndex(mSelectedTemplateInd)) {
+                        case RACK_FOCUS:
+                            // input value is in meters, so convert min focus diopters to meters
+                            float minValue = 1 / mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+                            if (value < minValue) {
+                                value = minValue;
+                                mHighEditText.setText(String.valueOf(value));
+                            }
+                            break;
+                        case BRACKET_EXPOSURE_TIME_ABSOLUTE:
+                            Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                            if (!expRange.contains((long) value)) {
+                                value = expRange.getUpper();
+                                mHighEditText.setText(String.valueOf(expRange.getUpper()));
+                            }
+                            break;
+                        case BRACKET_ISO_ABSOLUTE:
+                            Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                            if (!isoRange.contains((int) value)) {
+                                value = isoRange.getUpper();
+                                mHighEditText.setText(String.valueOf(isoRange.getUpper()));
+                            }
+                            break;
                     }
+
+                    mSelectedHighBound = value;
+                } catch (NumberFormatException nfe) {
+                    Toast.makeText(GenerateDesignFromTemplateActivity.this,
+                            "Please enter valid real number for bound.",
+                            Toast.LENGTH_SHORT).show();
+                    mSelectedHighBound = null;
+                    mHighEditText.setText("");
                 }
-                Log.v(DevCamActivity.APP_TAG,"High bound: " + mSelectedHighBound);
-                checkIfReadyToGenerate();
-                return false;
             }
+            Log.v(APP_TAG, "High bound: " + mSelectedHighBound);
+            checkIfReadyToGenerate();
+            return false;
         });
         //set unclickable until layout chosen, but first save key listener so it can be remade clickable
         mHighEditText.setEnabled(false);
@@ -414,26 +391,23 @@ public class GenerateDesignFromTemplateActivity extends Activity {
 
         // Set up the "Generate Capture Design" button which ends this Activity and returns the
         // input data to the main Activity.
-        mGenerateDesignButton = (Button) findViewById(R.id.generateDesignButton);
-        mGenerateDesignButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        mGenerateDesignButton = findViewById(R.id.generateDesignButton);
+        mGenerateDesignButton.setOnClickListener(v -> {
 
-                // Make sure bounds are in the correct order, just in case
-                if (mSelectedHighBound<mSelectedLowBound){
-                    Float temp = mSelectedHighBound;
-                    mSelectedHighBound = mSelectedLowBound;
-                    mSelectedLowBound = temp;
-                }
-
-                Intent resultIntent = new Intent();
-                resultIntent.putExtra(DataTags.TEMPLATE_ID.toString(),mSelectedTemplateInd);
-                resultIntent.putExtra(DataTags.LOW_BOUND.toString(),mSelectedLowBound);
-                resultIntent.putExtra(DataTags.HIGH_BOUND.toString(),mSelectedHighBound);
-                resultIntent.putExtra(DataTags.N_EXP.toString(),mSelectedNexp);
-                setResult(Activity.RESULT_OK, resultIntent);
-                finish();
+            // Make sure bounds are in the correct order, just in case
+            if (mSelectedHighBound < mSelectedLowBound) {
+                Float temp = mSelectedHighBound;
+                mSelectedHighBound = mSelectedLowBound;
+                mSelectedLowBound = temp;
             }
+
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra(DataTags.TEMPLATE_ID.toString(), mSelectedTemplateInd);
+            resultIntent.putExtra(DataTags.LOW_BOUND.toString(), mSelectedLowBound);
+            resultIntent.putExtra(DataTags.HIGH_BOUND.toString(), mSelectedHighBound);
+            resultIntent.putExtra(DataTags.N_EXP.toString(), mSelectedNexp);
+            setResult(Activity.RESULT_OK, resultIntent);
+            finish();
         });
         // Set unusable until correct data put in
         mGenerateDesignButton.setAlpha(0.5f);
@@ -441,7 +415,7 @@ public class GenerateDesignFromTemplateActivity extends Activity {
 
 
         // Make the whole yellow area "darked out" until a Template is selected
-        mParamsLayout = (LinearLayout) findViewById(R.id.designParamsLayout);
+        mParamsLayout = findViewById(R.id.designParamsLayout);
         mParamsLayout.setAlpha(0.5f);
 
         // Get the camera metadata to use in case the user wants to do a Template based on absolute
@@ -449,18 +423,17 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         CameraManager cm = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             String[] deviceList = cm.getCameraIdList();
-            for (int i = 0; i < deviceList.length; i++) {
-                mCamChars = cm.getCameraCharacteristics(deviceList[i]);
+            for (String device : deviceList) {
+                mCamChars = cm.getCameraCharacteristics(device);
                 if (mCamChars.get(CameraCharacteristics.LENS_FACING)
                         == CameraMetadata.LENS_FACING_BACK) {
                     break;
                 }
             }
-        } catch (CameraAccessException cae){
+        } catch (CameraAccessException cae) {
             cae.printStackTrace();
         }
     }
-
 
 
     /* void checkIfReadyToGenerate()
@@ -471,8 +444,8 @@ public class GenerateDesignFromTemplateActivity extends Activity {
      * Generally called whenever a new parameter value is input, to see if all necessary ones are
      * present now.
      */
-    void checkIfReadyToGenerate(){
-        if (mSelectedLowBound!=null && mSelectedHighBound!=null && mSelectedNexp != null){
+    void checkIfReadyToGenerate() {
+        if (mSelectedLowBound != null && mSelectedHighBound != null && mSelectedNexp != null) {
             mGenerateDesignButton.setAlpha(1.0f);
             mGenerateDesignButton.setClickable(true);
         }
