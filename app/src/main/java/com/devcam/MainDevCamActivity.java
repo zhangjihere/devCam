@@ -15,6 +15,7 @@ import android.os.CountDownTimer;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.SystemClock;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
@@ -85,6 +86,7 @@ public class MainDevCamActivity extends Activity {
 
 
     protected ImageReader mImageReader;
+    protected ImageReader mImageReaderExtra;
     private int mOutputFormatInd = 0;
     private Size[] mOutputSizes;
     private int mOutputSizeInd = 0;
@@ -169,8 +171,9 @@ public class MainDevCamActivity extends Activity {
                 mMainHandler.post(() -> {
                     mCapturingDesignTextView.setVisibility(View.INVISIBLE);
                     mCaptureButton.setVisibility(View.VISIBLE);
+                    setButtonsClickable(true);
                 });
-                setButtonsClickable(true);
+                Log.w("tombear", "saveImages End: " + SystemClock.elapsedRealtime() / 1000);
             }
 
             // Register the saved Image with the file system
@@ -187,7 +190,7 @@ public class MainDevCamActivity extends Activity {
         public void onCaptureAvailable(Image image, CaptureResult result) {
             Log.v(APP_TAG, "Image+Metadata paired by DesignResult, now available.");
 
-            String fileType = "";
+            final String fileType;
             switch (image.getFormat()) {
                 case ImageFormat.JPEG:
                     fileType = ".jpg";
@@ -196,15 +199,28 @@ public class MainDevCamActivity extends Activity {
                     fileType = ".yuv";
                     break;
                 case ImageFormat.RAW_SENSOR:
+                default:
                     fileType = ".dng";
                     break;
             }
+            final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
+            final String designName = mDesign.getDesignName();
+            final int fileNameNo;
+            final long timestamp = image.getTimestamp() / 1000000L;
+            // Record the filename for later, with format based on desing name, number and timestamp already saved.
+            final String filenameFormat = "%s-%s-%s%s";// example: 0000-00-0000000.xxx
+            final String filename;
+            // NOTES: When outputformat is RAW_SENSOR, it will estimate which .jpg or .dng file comes.
+            if (!(selectedImageFormat == ImageFormat.RAW_SENSOR & fileType.equals(".jpg"))) {
+                fileNameNo = mWrittenFilenames.size() + 1;
+                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+                mWrittenFilenames.add(filename);
+            } else {
+                fileNameNo = mWrittenFilenames.size();
+                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+            }
 
-            // Record the filename for later, with counter based on number already saved.
-            String filename = mDesign.getDesignName() + "-" + (mWrittenFilenames.size() + 1) + fileType;
-            mWrittenFilenames.add(filename);
-
-            File IM_SAVE_DIR = new File(CAPTURE_DIR, mDesign.getDesignName());
+            File IM_SAVE_DIR = new File(CAPTURE_DIR, designName);
             IM_SAVE_DIR.mkdir();
 
             // Post the images to be saved on another thread
@@ -218,22 +234,19 @@ public class MainDevCamActivity extends Activity {
             // Here, save the metadata and the request itself, and register them with the system
             // The onImageSaved() callback method will register the actual image files when ready.
 
-            File IM_SAVE_DIR = new File(CAPTURE_DIR, mDesign.getDesignName());
+            String designName = mDesign.getDesignName();
+            File IM_SAVE_DIR = new File(CAPTURE_DIR, designName);
 
             // First, save JSON file with array of metadata
-            File metadataFile = new File(IM_SAVE_DIR, mDesign.getDesignName() + "_capture_metadata" + ".json");
+            File metadataFile = new File(IM_SAVE_DIR, designName + "_capture_metadata" + ".json");
             CameraReport.writeCaptureResultsToFile(mDesignResult.getCaptureResults(), mWrittenFilenames, metadataFile);
             CameraReport.addFileToMTP(mContext, metadataFile.getAbsolutePath());
 
             // Now, write out a txt file with the information of the original
             // request for the capture design, to see how it compares with results
-            File requestFile = new File(IM_SAVE_DIR, mDesign.getDesignName() + "_design_request" + ".txt");
+            File requestFile = new File(IM_SAVE_DIR, designName + "_design_request" + ".txt");
             mDesign.writeOut(requestFile);
             CameraReport.addFileToMTP(mContext, requestFile.getAbsolutePath());
-
-            // Replace old design now that it is done
-            mDesign = mNextDesign;
-            mDesignResult = null;
         }
 
     };
@@ -267,37 +280,45 @@ public class MainDevCamActivity extends Activity {
             setButtonsClickable(true);
         }
 
+        @Override
         void onCaptureStarted(Long timestamp) {
             super.onCaptureStarted(timestamp);
             mDesignResult.recordCaptureTimestamp(timestamp);
         }
 
+        @Override
         void onCaptureCompleted(CaptureResult result) {
             super.onCaptureCompleted(result);
             mDesignResult.recordCaptureResult(result);
         }
 
+        @Override
         void onCaptureSequenceCompleted() {
             super.onCaptureSequenceCompleted();
 
+            mCapturingDesignTextView.setText("Saving Images.");
+            // Display to the user how much time passed between the
+            // first opening and the last closing of the shutter. Counts on the image
+            // timestamp generator being at least SOMEWHAT accurate.
+            if (mDesignResult != null) {
+                CaptureResult lastResult = mDesignResult.getCaptureResult(mDesignResult.getDesignLength() - 1);
+                CaptureResult firstResult = mDesignResult.getCaptureResult(0);
+                long captureTime = (lastResult.get(CaptureResult.SENSOR_TIMESTAMP)
+                        + lastResult.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+                        - firstResult.get(CaptureResult.SENSOR_TIMESTAMP));
+                Toast.makeText(mContext, "Capture Sequence Completed in " + CameraReport.nsToString(captureTime), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(mContext, "Capture Sequence Completed quicky.", Toast.LENGTH_SHORT).show();
+            }
             // Remove "capturing design" sign from sight.
             // Must be done in main thread, which created the View.
             mMainHandler.post(() -> {
-                mCapturingDesignTextView.setText("Saving Images.");
+                mDesignResult.checkIfComplete();
+                mDesignResult.saveImages();
+                // Replace old design now that it is done
+                mDesign = mNextDesign;
+                mDesignResult = null;
 
-                // Display to the user how much time passed between the
-                // first opening and the last closing of the shutter. Counts on the image
-                // timestamp generator being at least SOMEWHAT accurate.
-                if (mDesignResult != null) {
-                    CaptureResult lastResult = mDesignResult.getCaptureResult(mDesignResult.getDesignLength() - 1);
-                    CaptureResult firstResult = mDesignResult.getCaptureResult(0);
-                    long captureTime = (lastResult.get(CaptureResult.SENSOR_TIMESTAMP)
-                            + lastResult.get(CaptureResult.SENSOR_EXPOSURE_TIME)
-                            - firstResult.get(CaptureResult.SENSOR_TIMESTAMP));
-                    Toast.makeText(mContext, "Capture Sequence Completed in " + CameraReport.nsToString(captureTime), Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(mContext, "Capture Sequence Completed quicky.", Toast.LENGTH_SHORT).show();
-                }
                 updateDesignViews();
             });
         }
@@ -376,9 +397,10 @@ public class MainDevCamActivity extends Activity {
      * Right now the function is fairly sloppy, though it seems that a Nexus 5 can actually use 30
      * and work successfully. Much larger numbers don't throw an error, but do crash the application
      * later on.
+     * Galaxy S22 can use 55.
      */
     int imageBufferSizer() {
-        return Math.min(30, mDesign.getExposures().size()) + 2;
+        return Math.min(55, mDesign.getExposures().size()) + 1;
     }
 
 
@@ -439,27 +461,11 @@ public class MainDevCamActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.v(APP_TAG, "* * * * * * * * * * * * * * * * * * * * * * * * * * * * * *");
-        Log.v(APP_TAG, "DevCamActivity onCreate() called.");
+        Log.v(APP_TAG, "MainDevCamActivity onCreate() called.");
         Toast.makeText(this, "devCam directory: " + APP_DIR, Toast.LENGTH_LONG).show();
         Log.v(APP_TAG, "devCam directory: " + APP_DIR);
 
-        // Create main app dir if none exists. If it couldn't be created, quit.
-        if (!(APP_DIR.mkdir() || APP_DIR.isDirectory())) {
-            Toast.makeText(this, "Could not create application directory.", Toast.LENGTH_SHORT).show();
-            finish();
-        }
-
-        // Create folder for capture if none exists. If it can't be created, quit.
-        if (!(CAPTURE_DIR.mkdir() || CAPTURE_DIR.isDirectory())) {
-            Toast.makeText(this, "Could not create capture directory.", Toast.LENGTH_SHORT).show();
-            finish();
-        }
-
-        // Create folder for designs if none exists. If it can't be created, quit.
-        if (!(DESIGN_DIR.mkdir() || DESIGN_DIR.isDirectory())) {
-            Toast.makeText(this, "Could not create design directory.", Toast.LENGTH_SHORT).show();
-            finish();
-        }
+        createDIR();
 
         // Set the correct layout for this Activity
         setContentView(R.layout.camera_fragment);
@@ -496,11 +502,11 @@ public class MainDevCamActivity extends Activity {
         // and configuration purposes, so grab it from the stream map.
         // Right now, we are only set up to work with these formats:
         // JPEG, RAW_SENSOR ,YUV_420_888
-        StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-        int[] temp = streamMap.getOutputFormats();
+//        StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        int[] formats = mStreamMap.getOutputFormats();
         mOutputFormats = new ArrayList<>();
         mOutputFormatLabels = new ArrayList<>();
-        for (int fm : temp) {
+        for (int fm : formats) {
             if (fm == ImageFormat.JPEG
                     || fm == ImageFormat.RAW_SENSOR
                     || fm == ImageFormat.YUV_420_888) {
@@ -518,15 +524,34 @@ public class MainDevCamActivity extends Activity {
         mDevCam = DevCam.getInstance(this, mDevCamCallback);
     }
 
+    private void createDIR() {
+        // Create main app dir if none exists. If it couldn't be created, quit.
+        if (!(APP_DIR.mkdir() || APP_DIR.isDirectory())) {
+            Toast.makeText(this, "Could not create application directory.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+        // Create folder for capture if none exists. If it can't be created, quit.
+        if (!(CAPTURE_DIR.mkdir() || CAPTURE_DIR.isDirectory())) {
+            Toast.makeText(this, "Could not create capture directory.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+        // Create folder for designs if none exists. If it can't be created, quit.
+        if (!(DESIGN_DIR.mkdir() || DESIGN_DIR.isDirectory())) {
+            Toast.makeText(this, "Could not create design directory.", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
 
     @Override
     public void onResume() {
         super.onResume();
+        createDIR();
         establishActiveResources();
         Log.v(APP_TAG, "MainActivity onResume().");
 
         // Load the user settings for the use of delay and the display of parameters
-        SharedPreferences settings = this.getSharedPreferences(APP_TAG, Context.MODE_MULTI_PROCESS);
+        SharedPreferences settings = this.getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
         mUseDelay = settings.getBoolean(SettingsActivity.USE_DELAY_KEY, false);
         mDisplayOptions.showExposureTime = settings.getBoolean(SettingsActivity.SHOW_EXPOSURE_TIME, true);
         mDisplayOptions.showAperture = settings.getBoolean(SettingsActivity.SHOW_APERTURE, false);
@@ -789,7 +814,10 @@ public class MainDevCamActivity extends Activity {
                     // CaptureDesign class actually handles all of the commands to
                     // the camera.
 
-                    mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener);
+                    final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
+                    synchronized (this) {
+                        mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener, selectedImageFormat);
+                    }
                     Log.v(APP_TAG, "1111mDesignResult allocated.1111");
                     mWrittenFilenames = new ArrayList<>();
 
@@ -802,8 +830,11 @@ public class MainDevCamActivity extends Activity {
 
                         public void onFinish() {
 
-                            mNumImagesLeftToSave = mDesign.getExposures().size();
-
+                            if (selectedImageFormat == ImageFormat.RAW_SENSOR) { // DNG(RAW) file and extra JPEG file
+                                mNumImagesLeftToSave = 2 * mDesign.getExposures().size();
+                            } else {
+                                mNumImagesLeftToSave = mDesign.getExposures().size();
+                            }
 
                             // Make a new CaptureDesign based on the current one, with a new name, so the current
                             // results don't get overwritten if button pushed again.
@@ -854,19 +885,21 @@ public class MainDevCamActivity extends Activity {
             mImageSaverHandler = new Handler(mImageSaverThread.getLooper());
         }
 
-
-        // Establish output surface (ImageReader) resources and register our callback with it.
-        mImageReader = ImageReader.newInstance(
-                mOutputSizes[mOutputSizeInd].getWidth(), mOutputSizes[mOutputSizeInd].getHeight(),
-                mOutputFormats.get(mOutputFormatInd),
-                imageBufferSizer());  // defer to auxiliary function to determine size of allocation
-        mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mImageSaverHandler);
-
         List<Surface> surfaces = new ArrayList<>();
+        final int width = mOutputSizes[mOutputSizeInd].getWidth();
+        final int height = mOutputSizes[mOutputSizeInd].getHeight();
+        final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
+        // Establish output surface (ImageReader) resources and register our callback with it.
+        mImageReader = ImageReader.newInstance(width, height, selectedImageFormat, imageBufferSizer());
+        mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, mImageSaverHandler);
         surfaces.add(mImageReader.getSurface());
-
+        // Capture extra JPEG output when select RAW_SENSOR output format(DNG)
+        if (selectedImageFormat.equals(ImageFormat.RAW_SENSOR)) {
+            mImageReaderExtra = ImageReader.newInstance(width, height, ImageFormat.JPEG, imageBufferSizer());
+            mImageReaderExtra.setOnImageAvailableListener(mOnImageAvailableListener, mImageSaverHandler);
+            surfaces.add(mImageReaderExtra.getSurface());
+        }
         mDevCam.registerOutputSurfaces(surfaces);
-
 
         // Set up the SurfaceHolder of the appropriate View for being a
         // preview. Doing so initiates the loading of the camera, once the
@@ -905,8 +938,8 @@ public class MainDevCamActivity extends Activity {
             Integer[] yuvFormats = {ImageFormat.YUV_420_888};
 //                            ImageFormat.YV12,ImageFormat.YUY2,
 //                            ImageFormat.NV21,ImageFormat.NV16};
-            StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            int[] formats = streamMap.getOutputFormats();
+//            StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            int[] formats = mStreamMap.getOutputFormats();
             long minTime = Long.MAX_VALUE; // min frame time of feasible size. Want to minimize.
             long maxSize = 0; // area of feasible output size. Want to maximize.
             for (int format : formats) {
@@ -915,9 +948,9 @@ public class MainDevCamActivity extends Activity {
                         // This is a valid YUV format, so find its output times
                         // and sizes
                         Log.v(APP_TAG, "YUV format: " + CameraReport.cameraConstantStringer("android.graphics.ImageFormat", format));
-                        Size[] sizes = streamMap.getOutputSizes(format);
+                        Size[] sizes = mStreamMap.getOutputSizes(format);
                         for (Size size : sizes) {
-                            long frameTime = (streamMap.getOutputMinFrameDuration(format, size));
+                            long frameTime = (mStreamMap.getOutputMinFrameDuration(format, size));
                             if (size.getHeight() * 4 != size.getWidth() * 3) {
                                 //Log.v(APP_TAG,"Incorrect aspect ratio. Skipping.");
                                 continue;
@@ -978,6 +1011,7 @@ public class MainDevCamActivity extends Activity {
         Log.v(APP_TAG, "freeImageSaverResources() called.");
 
         mImageReader.close();
+        mImageReaderExtra.close();
 
         mImageSaverThread.quitSafely();
         try {

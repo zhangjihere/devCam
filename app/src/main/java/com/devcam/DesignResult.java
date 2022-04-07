@@ -23,31 +23,46 @@
 
 package com.devcam;
 
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CaptureResult;
 import android.media.Image;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class DesignResult {
 
     private final int mDesignLength;
-    private final List<CaptureResult> mCaptureResults = new CopyOnWriteArrayList<>();
+    private final List<CaptureResult> mCaptureResults = new ArrayList<>();
     //	private Map<Long,CaptureResult> mCaptureResults = new HashMap<Long,CaptureResult>();
     private final List<Long> mCaptureTimestamps = new ArrayList<>();
     private final List<Image> mImages = new CopyOnWriteArrayList<>();
     //	private Map<Long,Image> mImages = new HashMap<Long,Image>();
     private final OnCaptureAvailableListener mRegisteredListener;
-    private int mNumAssociated = 0;
+
+    private CountDownLatch capturedResultAndImageLatch;
 
     // - - - Constructor - - -
-    public DesignResult(int designLength, OnCaptureAvailableListener listener) {
+    public DesignResult(int designLength, OnCaptureAvailableListener listener, int imageFormat) {
         mDesignLength = designLength;
         mRegisteredListener = listener;
+        if (imageFormat == ImageFormat.RAW_SENSOR) {
+            //  CaptureResult number + image Dng and extra JPEG number
+            capturedResultAndImageLatch = new CountDownLatch(mDesignLength + 2 * mDesignLength);
+        } else {
+            //  CaptureResult number + image number
+            capturedResultAndImageLatch = new CountDownLatch(mDesignLength + mDesignLength);
+        }
     }
 
+    public DesignResult(int designLength, OnCaptureAvailableListener listener) {
+        this(designLength, listener, -1);
+    }
 
     // - - Setters and Getter - -
     public int getDesignLength() {
@@ -86,24 +101,7 @@ public class DesignResult {
      */
     public void recordCaptureResult(CaptureResult result) {
         mCaptureResults.add(result);
-        //Log.v(DevCamActivity.APP_TAG, mCaptureResults.size() + " CaptureResults Recorded.");
-
-        for (int i = 0; i < mImages.size(); i++) {
-            Log.v(DevCamActivity.APP_TAG, "Comparing with stored Image " + i);
-            if (mImages.get(i).getTimestamp() == result.get(CaptureResult.SENSOR_TIMESTAMP)) {
-                // Send back to the main Activity.
-                if (null != mRegisteredListener) {
-                    mRegisteredListener.onCaptureAvailable(mImages.get(i), result);
-                }
-                mImages.remove(i); // remove from List because we can't access this image once it is close()'d by the ImageSaver
-                //Log.v(DevCamActivity.APP_TAG,mImages.toString());
-
-                mNumAssociated++;
-                checkIfComplete();
-                return;
-            }
-        }
-        //Log.v(DevCamActivity.APP_TAG,"No existing Image found. Storing for later.");
+        capturedResultAndImageLatch.countDown();
     }
 
 
@@ -116,25 +114,9 @@ public class DesignResult {
      * CaptureResult comes in.
      */
     public void recordImage(Image image) {
-
-        for (CaptureResult result : mCaptureResults) {
-            if (result.get(CaptureResult.SENSOR_TIMESTAMP) == image.getTimestamp()) {
-
-                // Send back to the main Activity.
-                if (null != mRegisteredListener) {
-                    mRegisteredListener.onCaptureAvailable(image, result);
-                }
-
-                mNumAssociated++;
-                checkIfComplete();
-                //Log.v(DevCamActivity.APP_TAG,"Existing CaptureResult matched to Image. Writing out.");
-                return;
-            }
-        }
-
         // If there was no CaptureResult associated with this image yet, save it until one is.
         mImages.add(image);
-        //Log.v(DevCamActivity.APP_TAG,"No existing CaptureResult found. Storing for later.");
+        capturedResultAndImageLatch.countDown();
     }
 
 
@@ -149,15 +131,32 @@ public class DesignResult {
      * method to inform the main Activity class.
      */
 
-    private void checkIfComplete() {
-        if (mNumAssociated == mDesignLength) {
-            //Log.v(DevCamActivity.APP_TAG, "DesignResult: Capture Sequence Complete. Saving results. ");
-            if (null != mRegisteredListener) {
-                mRegisteredListener.onAllCapturesReported(this);
-            }
+    protected void checkIfComplete() {
+        Log.w("tombear", "checkIfComplete Start: " + SystemClock.elapsedRealtime() / 1000);
+        try {
+            capturedResultAndImageLatch.await(300, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+        Log.w("tombear", "checkIfComplete End: " + SystemClock.elapsedRealtime() / 1000);
     }
 
+    protected void saveImages() {
+        Log.w("tombear", "saveImages Start: " + SystemClock.elapsedRealtime() / 1000);
+//        mCaptureResults.sort((r1, r2) -> (int) (r1.get(CaptureResult.SENSOR_TIMESTAMP) - r2.get(CaptureResult.SENSOR_TIMESTAMP)));
+//        mImages.sort((i1, i2) -> (int) (i1.getTimestamp() - i2.getTimestamp()));
+        for (Image image : mImages) {
+            for (CaptureResult result : mCaptureResults) {
+                if (image.getTimestamp() == result.get(CaptureResult.SENSOR_TIMESTAMP)) {
+                    mRegisteredListener.onCaptureAvailable(image, result);
+                    mImages.remove(image);
+                    break;
+                }
+            }
+        }
+        mRegisteredListener.onAllCapturesReported(this);
+        Log.w("tombear", "saveImages Report: " + SystemClock.elapsedRealtime() / 1000);
+    }
 
     static public abstract class OnCaptureAvailableListener {
         public void onCaptureAvailable(Image image, CaptureResult result) {

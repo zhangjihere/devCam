@@ -25,7 +25,6 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class RemoteCaptureActivity extends Activity {
@@ -47,8 +46,11 @@ public class RemoteCaptureActivity extends Activity {
     final String DESIGN_NAME = "DESIGN_NAME";
     final String CAPTURE_REQUEST = "CAPTURE_REQUEST";
 
+    int mrOutputFormat;
+
     private List<String> mWrittenFilenames;
     ImageReader mImageReader;
+    ImageReader mImageReaderExtra;
     TextView textView;
 
     protected Handler mMainHandler;
@@ -129,7 +131,25 @@ public class RemoteCaptureActivity extends Activity {
         void onCaptureSequenceCompleted() {
             super.onCaptureSequenceCompleted();
             mMainHandler.post(() -> textView.setText("Saving Images."));
-
+            // Display to the user how much time passed between the
+            // first opening and the last closing of the shutter. Counts on the image
+            // timestamp generator being at least SOMEWHAT accurate.
+            if (mDesignResult != null) {
+                CaptureResult lastResult = mDesignResult.getCaptureResult(mDesignResult.getDesignLength() - 1);
+                CaptureResult firstResult = mDesignResult.getCaptureResult(0);
+                long captureTime = (lastResult.get(CaptureResult.SENSOR_TIMESTAMP)
+                        + lastResult.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+                        - firstResult.get(CaptureResult.SENSOR_TIMESTAMP));
+                Toast.makeText(mContext, "Capture Sequence Completed in " + CameraReport.nsToString(captureTime), Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(mContext, "Capture Sequence Completed quicky.", Toast.LENGTH_SHORT).show();
+            }
+            // Remove "capturing design" sign from sight.
+            // Must be done in main thread, which created the View.
+            mMainHandler.post(() -> {
+                mDesignResult.checkIfComplete();
+                mDesignResult.saveImages();
+            });
         }
     };
 
@@ -140,6 +160,26 @@ public class RemoteCaptureActivity extends Activity {
         Log.v(APP_TAG, "* * * * * * * * * * * * * * * * * * * * * * * * * * * * * *");
         Log.v(APP_TAG, "RemoteCaptureActivity onCreate().");
 
+        createDIR();
+
+        // Override default layout and preview surface
+        setContentView(R.layout.remote_layout);
+
+        mPreviewSurfaceView = (AutoFitSurfaceView) findViewById(R.id.remoteSurfaceView);
+
+        textView = findViewById(R.id.remoteTextView);
+
+        mDevCam = DevCam.getInstance(this, mDevCamStateCallback);
+        mCamChars = DevCam.getCameraCharacteristics(this);
+        mStreamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+        mContext = this;
+
+        // Hide the action bar so the activity gets the full screen
+        getActionBar().hide();
+    }
+
+    private void createDIR() {
         // Create main app dir if none exists. If it couldn't be created, quit.
         if (!(APP_DIR.mkdir() || APP_DIR.isDirectory())) {
             Toast.makeText(this, "Could not create application directory.", Toast.LENGTH_SHORT).show();
@@ -157,27 +197,12 @@ public class RemoteCaptureActivity extends Activity {
             Toast.makeText(this, "Could not create design directory.", Toast.LENGTH_SHORT).show();
             finish();
         }
-
-        // Override default layout and preview surface
-        setContentView(R.layout.remote_layout);
-
-        mPreviewSurfaceView = (AutoFitSurfaceView) findViewById(R.id.remoteSurfaceView);
-
-        textView = (TextView) findViewById(R.id.remoteTextView);
-
-        mDevCam = DevCam.getInstance(this, mDevCamStateCallback);
-        mCamChars = DevCam.getCameraCharacteristics(this);
-        mStreamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-
-        mContext = this;
-
-        // Hide the action bar so the activity gets the full screen
-        getActionBar().hide();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        createDIR();
         Log.v(APP_TAG, "RemoteCaptureActivity onResume().");
         establishActiveResources();
 
@@ -255,6 +280,7 @@ public class RemoteCaptureActivity extends Activity {
         Log.v(APP_TAG, "Height: " + height);
 
         int format = intent.getIntExtra(FORMAT, -1);
+        mrOutputFormat = format;
         if (format == -1) {
             Log.v(APP_TAG, "No Format in Intent");
             return;
@@ -273,26 +299,37 @@ public class RemoteCaptureActivity extends Activity {
         try {
 
             mDesign = CaptureDesign.Creator.loadDesignFromJson(designFile);
-            mDesign.setDesignName(designName);
+            mDesign.setDesignName(designName.substring(0, 4));
             mDesign.setProcessingSetting(CaptureDesign.ProcessingChoice.getChoiceByIndex(processingSetting));
-            mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener);
+            mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener, format);
             mWrittenFilenames = new ArrayList<>();
 
-            mNumImagesLeftToSave = mDesign.getExposures().size();
+            if (mrOutputFormat == ImageFormat.RAW_SENSOR) { // DNG(RAW) file and extra JPEG file
+                mNumImagesLeftToSave = 2 * mDesign.getExposures().size();
+            } else {
+                mNumImagesLeftToSave = mDesign.getExposures().size();
+            }
 
             Log.v(APP_TAG, "CaptureDesign created.");
 
+            List<Surface> surfaces = new ArrayList<>();
             // Establish output surface (ImageReader) resources and register our callback with it.
-            mImageReader = ImageReader.newInstance(width, height, format,
-                    imageBufferSizer(mDesign));  // defer to auxiliary function to determine size of allocation
+            mImageReader = ImageReader.newInstance(width, height, format, imageBufferSizer(mDesign));  // defer to auxiliary function to determine size of allocation
             mImageReader.setOnImageAvailableListener(reader -> {
-                Log.v(APP_TAG, "IMAGE READY! Saving to DesignResult.");
                 Image image = reader.acquireNextImage();
                 mDesignResult.recordImage(image);
             }, mImageSaverHandler);
-
-
-            mDevCam.registerOutputSurfaces(Collections.singletonList(mImageReader.getSurface()));
+            surfaces.add(mImageReader.getSurface());
+            // Capture extra JPEG output when select RAW_SENSOR output format(DNG)
+            if (mrOutputFormat == ImageFormat.RAW_SENSOR) {
+                mImageReaderExtra = ImageReader.newInstance(width, height, ImageFormat.JPEG, imageBufferSizer(mDesign));  // defer to auxiliary function to determine size of allocation
+                mImageReaderExtra.setOnImageAvailableListener(reader -> {
+                    Image image = reader.acquireNextImage();
+                    mDesignResult.recordImage(image);
+                }, mImageSaverHandler);
+                surfaces.add(mImageReaderExtra.getSurface());
+            }
+            mDevCam.registerOutputSurfaces(surfaces);
             mWaitingToCapture = true;
             Log.v(APP_TAG, "Output surface created and registered with DevCam. Waiting for updated CaptureSession.");
 
@@ -317,7 +354,7 @@ public class RemoteCaptureActivity extends Activity {
      * later on.
      */
     int imageBufferSizer(CaptureDesign design) {
-        return Math.min(30, design.getExposures().size()) + 2;
+        return Math.min(55, design.getExposures().size()) + 1;
     }
 
     private void errorToast() {
@@ -385,8 +422,8 @@ public class RemoteCaptureActivity extends Activity {
             Integer[] yuvFormats = {ImageFormat.YUV_420_888};
 //                            ImageFormat.YV12,ImageFormat.YUY2,
 //                            ImageFormat.NV21,ImageFormat.NV16};
-            StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            int[] formats = streamMap.getOutputFormats();
+//            StreamConfigurationMap streamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            int[] formats = mStreamMap.getOutputFormats();
             long minTime = Long.MAX_VALUE; // min frame time of feasible size. Want to minimize.
             long maxSize = 0; // area of feasible output size. Want to maximize.
             for (int format : formats) {
@@ -395,9 +432,9 @@ public class RemoteCaptureActivity extends Activity {
                         // This is a valid YUV format, so find its output times
                         // and sizes
                         Log.v(APP_TAG, "YUV format: " + CameraReport.cameraConstantStringer("android.graphics.ImageFormat", format));
-                        Size[] sizes = streamMap.getOutputSizes(format);
+                        Size[] sizes = mStreamMap.getOutputSizes(format);
                         for (Size size : sizes) {
-                            long frameTime = (streamMap.getOutputMinFrameDuration(format, size));
+                            long frameTime = (mStreamMap.getOutputMinFrameDuration(format, size));
                             if (size.getHeight() * 4 != size.getWidth() * 3) {
                                 //Log.v(APP_TAG,"Incorrect aspect ratio. Skipping.");
                                 continue;
@@ -461,6 +498,9 @@ public class RemoteCaptureActivity extends Activity {
         if (mImageReader != null) {
             mImageReader.close();
         }
+        if (mImageReaderExtra != null) {
+            mImageReaderExtra.close();
+        }
 
         mImageSaverThread.quitSafely();
         try {
@@ -492,10 +532,21 @@ public class RemoteCaptureActivity extends Activity {
                     fileType = ".dng";
                     break;
             }
-
+            final String designName = mDesign.getDesignName();
+            final int fileNameNo;
+            final long timestamp = image.getTimestamp() / 1000000L;
             // Record the filename for later, with counter based on number already saved.
-            String filename = mDesign.getDesignName() + "-" + (mWrittenFilenames.size() + 1) + fileType;
-            mWrittenFilenames.add(filename);
+            final String filenameFormat = "%s-%s-%s%s";// example: 0000-00-0000000.xxx
+            final String filename;
+            // NOTES: When outputformat is RAW_SENSOR, it will estimate which .jpg or .dng file comes.
+            if (!(mrOutputFormat == ImageFormat.RAW_SENSOR & fileType.equals(".jpg"))) {
+                fileNameNo = mWrittenFilenames.size() + 1;
+                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+                mWrittenFilenames.add(filename);
+            } else {
+                fileNameNo = mWrittenFilenames.size();
+                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+            }
 
             File IM_SAVE_DIR = new File(CAPTURE_DIR, mDesign.getDesignName());
             IM_SAVE_DIR.mkdir();

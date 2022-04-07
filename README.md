@@ -16,5 +16,20 @@ devCam also puts out large amounts of human-readable metadata about the camera d
 
 For more see devcamera.org
 
-Rob Sumner
+## RteCapture ADB command example:  
+
+```bash
+adb shell am start -n com.devcam/.RemoteCaptureActivity -a CAPTURE_REQUEST \
+    --ei PROCESSING_SETTING 1 --ei WIDTH 4080 --ei HEIGHT 3060 \
+    --ei FORMAT 32 --es DESIGN_NAME 1822_capture_metadata 
+
+adb shell am start -n com.devcam/.RemoteCaptureActivity -a CAPTURE_REQUEST \
+    --ei PROCESSING_SETTING 1 --ei WIDTH 4080 --ei HEIGHT 3060 \
+    --ei FORMAT 256 --es DESIGN_NAME 1918_capture_metadata 
+```
+
+Rob Sumner  
 rcsumner@ucsc.edu
+
+Ji Zhang  
+ji.zhang@samsung.com

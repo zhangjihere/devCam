@@ -53,8 +53,13 @@ import android.media.MediaScannerConnection;
 import android.util.JsonWriter;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Array;
@@ -392,17 +397,18 @@ final public class CameraReport {
         sContextMap.put("android.tonemap.preset", subMap);
 
         subMap = new HashMap<>();
+        subMap.put(32, "RAW_SENSOR");
         subMap.put(256, "JPEG");
+        subMap.put(34, "PRIVATE");
+        subMap.put(35, "YUV_420_888");
+        subMap.put(36, "RAW_PRIVATE");
+        subMap.put(38, "RAW12");
         subMap.put(16, "NV16");
         subMap.put(17, "NV21");
         subMap.put(37, "RAW10");
-        subMap.put(32, "RAW_SENSOR");
         subMap.put(4, "RGB_565");
-        subMap.put(34, "PRIVATE");
-        subMap.put(35, "YUV_420_888");
         subMap.put(39, "YUV_422_888");
         subMap.put(40, "YUV_444_888");
-        subMap.put(38, "RAW12");
         subMap.put(20, "YUY2");
         subMap.put(41, "FLEX_RGB_888");
         subMap.put(42, "FLEX_RGBA_8888");
@@ -612,26 +618,20 @@ final public class CameraReport {
     // Sometimes I want to write an array of CaptureResults to an array of
     // objects in a JSON, along with the associated image file names.
     static void writeCaptureResultsToFile(List<CaptureResult> results, List<String> imageFileNames, File file) {
-        try (FileOutputStream fostream = new FileOutputStream(file);
-             JsonWriter writer = new JsonWriter(new OutputStreamWriter(fostream, StandardCharsets.UTF_8))) {
-            writer.setIndent("    ");
-            writer.beginArray();
+        try (FileWriter fileWriter = new FileWriter(file)) {
+            final JSONArray reportJson = new JSONArray();
             for (int i = 0; i < results.size(); i++) {
                 CaptureResult result = results.get(i);
-                writer.beginObject();
-                writer.name("Filename");
-                writer.value(imageFileNames.get(i));
-
-                List<CaptureResult.Key<?>> keys = result.getKeys();
-                for (CaptureResult.Key<?> key : keys) {
-                    writer.name(key.getName());
-                    writer.value(cameraConstantStringer(key.getName(), result.get(key)));
+                final JSONObject item = new JSONObject();
+                item.put("Filename", imageFileNames.get(i));
+                for (CaptureResult.Key<?> metaKey : result.getKeys()) {
+                    item.put(metaKey.getName(), cameraConstantStringer(metaKey.getName(), result.get(metaKey)));
                 }
-                writer.endObject();
+                reportJson.put(item);
             }
-            writer.endArray();
-        } catch (IOException fnfe) {
-            fnfe.printStackTrace();
+            fileWriter.write(reportJson.toString(2));
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
         }
     }
 
@@ -639,26 +639,27 @@ final public class CameraReport {
     // Little conversion function to correctly format time units from
     // long value in ns to string representing ms.
     static public String nsToString(long ns) {
-        String units;
+        final String units;
+        final double avn;
         if (ns >= 1000000) {
-            ns = ns / 1000000;
+            avn = ns / 1000000f;
             units = "ms";
         } else if (ns >= 1000) {
-            ns = ns / 1000;
+            avn = ns / 1000f;
             units = Character.toChars(956)[0] + "s";
         } else {
+            avn = ns;
             units = "ns";
         }
-
-        DecimalFormat df = new DecimalFormat("@@@");
-        return df.format(ns) + units;
+        DecimalFormat df = new DecimalFormat("0"); // EXAMPLE： format 19.98 as 20
+        return df.format(avn) + units;
     }
 
     // Little conversion function to correctly format diopter units
     // from float into string in meters.
     static public String diopterToMeters(Float f) {
         f = 1 / f;
-        DecimalFormat df = new DecimalFormat("@@@");
+        DecimalFormat df = new DecimalFormat("0.00");
         return df.format(f) + "m";
     }
 
