@@ -344,7 +344,7 @@ public class CaptureDesign {
         static CaptureDesign exposureTimeBracketAroundAuto(Range<Float> stopRange, int nExp) {
             CaptureDesign output = new CaptureDesign();
 
-            float logStep = (stopRange.getUpper() - stopRange.getLower()) / (nExp - 1);
+            float logStep = (nExp > 1) ? ((stopRange.getUpper() - stopRange.getLower()) / (nExp - 1)) : 0;
 
             for (int i = 0; i < nExp; i++) {
                 Exposure temp = new Exposure(Exposure.ALL_AUTO);
@@ -371,7 +371,7 @@ public class CaptureDesign {
         static CaptureDesign isoBracketAroundAuto(Range<Float> stopRange, int nExp) {
             CaptureDesign output = new CaptureDesign();
 
-            float logStep = (stopRange.getUpper() - stopRange.getLower()) / (nExp - 1);
+            float logStep = (nExp > 1) ? ((stopRange.getUpper() - stopRange.getLower()) / (nExp - 1)) : 0;
 
             for (int i = 0; i < nExp; i++) {
                 Exposure temp = new Exposure(Exposure.ALL_AUTO);
@@ -382,7 +382,7 @@ public class CaptureDesign {
         }
 
 
-        /* CaptureDesign exposureTimeBracketAbsolute(CameraCharacteristics, Range<Long>, int)
+        /* CaptureDesign exposureTimeBracketAbsolute(Range<Long>, Range<Long>, int)
          *
          * Creates a CaptureDesign that is bracketed between two absolute exposure time values,
          * with the number of steps indicated by the int input.
@@ -390,18 +390,18 @@ public class CaptureDesign {
          * Bracketing is linear in exposure time.
          *
          */
-        static CaptureDesign exposureTimeBracketAbsolute(CameraCharacteristics camChars,
+        static CaptureDesign exposureTimeBracketAbsolute(Range<Long> deviceExpTimeRange,
                                                          Range<Long> timeRange,
                                                          int nExp) {
             CaptureDesign output = new CaptureDesign();
 
             // The linear interpolation step size for each Exposure
-            long tStep = (timeRange.getUpper() - timeRange.getLower()) / (nExp - 1);
+            long tStep = (nExp > 1) ? ((timeRange.getUpper() - timeRange.getLower()) / (nExp - 1)) : 0;
 
             for (int i = 0; i < nExp; i++) {
                 long expTime = timeRange.getLower() + tStep * i;
                 // Only add this bracketed exposure if it is within the bounds of the camera's means.
-                if (camChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).contains(expTime)) {
+                if (deviceExpTimeRange.contains(expTime)) {
                     // Create an Exposure from the auto Result and only give it the new exposure time.
                     Exposure temp = new Exposure("ALL_AUTO");
                     temp.setExposureTime(expTime);
@@ -412,7 +412,7 @@ public class CaptureDesign {
         }
 
 
-        /* CaptureDesign isoBracketAbsolute(CameraCharacteristics, Range<Integer>, int)
+        /* CaptureDesign isoBracketAbsolute(Range<Integer>, Range<Integer>, int)
          *
          * Creates a CaptureDesign that is bracketed between two absolute ISO values,
          * with the number of steps indicated by the int input.
@@ -420,18 +420,18 @@ public class CaptureDesign {
          * Bracketing is linear in ISO.
          *
          */
-        static CaptureDesign isoBracketAbsolute(CameraCharacteristics camChars,
+        static CaptureDesign isoBracketAbsolute(Range<Integer> deviceISORange,
                                                 Range<Integer> isoRange,
                                                 int nExp) {
             CaptureDesign output = new CaptureDesign();
 
             // The linear interpolation step size for each Exposure
-            int tStep = (isoRange.getUpper() - isoRange.getLower()) / (nExp - 1);
+            int tStep = (nExp > 1) ? ((isoRange.getUpper() - isoRange.getLower()) / (nExp - 1)) : 0;
 
             for (int i = 0; i < nExp; i++) {
                 Integer iso = isoRange.getLower() + tStep * i;
                 // Only add this bracketed exposure if it is within the bounds of the camera's means.
-                if (camChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).contains(iso)) {
+                if (deviceISORange.contains(iso)) {
                     // Create an Exposure from the auto Result and only give it the new iso
                     Exposure temp = new Exposure("ALL_AUTO");
                     temp.setSensitivity(iso);
@@ -457,7 +457,7 @@ public class CaptureDesign {
             CaptureDesign output = new CaptureDesign();
 
             // The linear interpolation step size for each Exposure
-            float focusStep = (focusRange.getUpper() - focusRange.getLower()) / (nExp - 1);
+            float focusStep = (nExp > 1) ? ((focusRange.getUpper() - focusRange.getLower()) / (nExp - 1)) : 0;
 
             for (int i = 0; i < nExp; i++) {
                 float focuspt = focusRange.getLower() + focusStep * i;

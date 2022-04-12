@@ -625,7 +625,8 @@ public class MainDevCamActivity extends Activity {
                         break;
                     case BRACKET_EXPOSURE_TIME_ABSOLUTE:
                         Range<Long> expTimeRange = new Range<>((long) lowBound, (long) highBound);
-                        mDesign = CaptureDesign.Creator.exposureTimeBracketAbsolute(mCamChars, expTimeRange, nExp);
+                        final Range<Long> deviceExpTimeRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                        mDesign = CaptureDesign.Creator.exposureTimeBracketAbsolute(deviceExpTimeRange, expTimeRange, nExp);
                         break;
                     case BRACKET_EXPOSURE_TIME_RELATIVE:
                         Range<Float> stopRange = new Range<>(lowBound, highBound);
@@ -633,7 +634,8 @@ public class MainDevCamActivity extends Activity {
                         break;
                     case BRACKET_ISO_ABSOLUTE:
                         Range<Integer> isoRange = new Range<>((int) lowBound, (int) highBound);
-                        mDesign = CaptureDesign.Creator.isoBracketAbsolute(mCamChars, isoRange, nExp);
+                        final Range<Integer> deviceISORange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                        mDesign = CaptureDesign.Creator.isoBracketAbsolute(deviceISORange, isoRange, nExp);
                         break;
                     case BRACKET_ISO_RELATIVE:
                         stopRange = new Range<>(lowBound, highBound);
@@ -858,6 +860,8 @@ public class MainDevCamActivity extends Activity {
                 } else {
                     Toast.makeText(mContext, "devCam not ready to capture yet.", Toast.LENGTH_SHORT).show();
                 }
+            } else {
+                Toast.makeText(mContext, "There's no designed Exposures yet.", Toast.LENGTH_SHORT).show();
             }
         });
 
