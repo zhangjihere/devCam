@@ -40,6 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Low"
+                android:id="@+id/lowLabelText"
                 android:textStyle="bold"
                 android:layout_marginBottom="-3dp" />
 
@@ -64,6 +65,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="High"
+                android:id="@+id/highLabelText"
                 android:textStyle="bold"
                 android:layout_marginBottom="-3dp"/>
 

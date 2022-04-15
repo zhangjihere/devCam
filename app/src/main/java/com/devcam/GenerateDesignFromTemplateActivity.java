@@ -21,6 +21,7 @@ import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Range;
@@ -56,7 +57,8 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         BRACKET_EXPOSURE_TIME_RELATIVE(3),
         BRACKET_EXPOSURE_TIME_ABSOLUTE(4),
         BRACKET_ISO_RELATIVE(5),
-        BRACKET_ISO_ABSOLUTE(6);
+        BRACKET_ISO_ABSOLUTE(6),
+        CUSTOMIZED_ISO_EXPOSURE(7);
 
         private final int index;
 
@@ -104,6 +106,9 @@ public class GenerateDesignFromTemplateActivity extends Activity {
                     break;
                 case BRACKET_ISO_RELATIVE:
                     output = "Bracket ISO around Auto-value";
+                    break;
+                case CUSTOMIZED_ISO_EXPOSURE:
+                    output = "Customize ISO and Exposure Time";
                     break;
                 default:
                     output = super.toString();
@@ -192,6 +197,7 @@ public class GenerateDesignFromTemplateActivity extends Activity {
 
             // Now switch the rest of the views depending on the Template selected
             mSelectedTemplateInd = position;
+            String bounds;
             switch (mDesignTemplateList.get(position)) {
                 case BURST:
                 case SPLIT_TIME:
@@ -209,7 +215,7 @@ public class GenerateDesignFromTemplateActivity extends Activity {
                     if (mCamChars != null) {
                         Float minFoc = mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
                         if (minFoc > 0) {
-                            String bounds = "Device bounds:\n[" +
+                            bounds = "Device bounds:\n[" +
                                     CameraReport.diopterToMeters(mCamChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE))
                                     + ", " + DecimalFormatSymbols.getInstance().getInfinity() + "]";
                             // If these values are not actually meaningful, alert the user w/an asterisk
@@ -224,24 +230,44 @@ public class GenerateDesignFromTemplateActivity extends Activity {
                 case BRACKET_EXPOSURE_TIME_ABSOLUTE:
                     mUnitsTextView.setText("ns");
                     // Set the device's actual bounds visible
-                    if (mCamChars != null) {
-                        String bounds = "Device bounds:\n" +
-                                mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).toString();
-                        mDeviceBoundTextView.setText(bounds);
+                    if (Build.MODEL.equals("SM-S9010")) {
+                        bounds = "Device bounds:\n" + new Range<>(12000L, 56000000000L);// S22 shutter 12μs~56s based on empirical test
+                    } else if (Build.MODEL.equals("SM-F9260")) {
+                        bounds = "Device bounds:\n" + new Range<>(18000L, 30000000000L);// Fold3 shutter 18μs~30+s based on empirical test
+                    } else {
+                        bounds = "Device bounds:\n" + mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).toString();
                     }
+                    mDeviceBoundTextView.setText(bounds);
                     break;
                 case BRACKET_ISO_ABSOLUTE:
                     mUnitsTextView.setText("ISO");
                     // Set the device's actual bounds visible
-                    if (mCamChars != null) {
-                        String bounds = "Device bounds:\n" +
-                                mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).toString();
-                        mDeviceBoundTextView.setText(bounds);
+                    if (Build.MODEL.equals("SM-S9010")) {
+                        bounds = "Device bounds:\n" + new Range<>(50, 51200);// S22 ISO 50~51200 based on empirical test
+                    } else if (Build.MODEL.equals("SM-F9260")) {
+                        bounds = "Device bounds:\n" + new Range<>(50, 12800);// Fold3 ISO 50~12800 based on empirical test
+                    } else {
+                        bounds = "Device bounds:\n" + mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).toString();
                     }
+                    mDeviceBoundTextView.setText(bounds);
                     break;
                 case BRACKET_EXPOSURE_TIME_RELATIVE:
                 case BRACKET_ISO_RELATIVE:
                     mUnitsTextView.setText("stops around auto");
+                    break;
+                case CUSTOMIZED_ISO_EXPOSURE:
+                    ((TextView) findViewById(R.id.lowLabelText)).setText("ISO");
+                    ((TextView) findViewById(R.id.highLabelText)).setText("ExpoTime");
+                    mUnitsTextView.setText("ISO|ns");
+                    if (Build.MODEL.equals("SM-S9010")) {
+                        bounds = "Device bounds ISO|Expo:\n" + new Range<>(50, 51200) + ", " + new Range<>(12000L, 56000000000L);
+                    } else if (Build.MODEL.equals("SM-F9260")) {
+                        bounds = "Device bounds ISO|Expo:\n" + new Range<>(50, 12800) + ", " + new Range<>(18000L, 30000000000L);
+                    } else {
+                        bounds = "Device bounds:\n" + mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE).toString()
+                                + ", " + mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).toString();
+                    }
+                    mDeviceBoundTextView.setText(bounds);
                     break;
                 default:
                     mUnitsTextView.setText("?");
@@ -303,14 +329,29 @@ public class GenerateDesignFromTemplateActivity extends Activity {
                             }
                             break;
                         case BRACKET_EXPOSURE_TIME_ABSOLUTE:
-                            Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                            final Range<Long> expRange;
+                            if (Build.MODEL.equals("SM-S9010")) {
+                                expRange = new Range<>(12000L, 56000000000L);// S22 shutter 12μs~56s based on empirical test
+                            } else if (Build.MODEL.equals("SM-F9260")) {
+                                expRange = new Range<>(18000L, 30000000000L);// Fold3 shutter 18μs~30+s based on empirical test
+                            } else {
+                                expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                            }
                             if (!expRange.contains((long) value)) {
                                 value = expRange.getLower();
                                 mLowEditText.setText(String.valueOf(expRange.getLower()));
                             }
                             break;
                         case BRACKET_ISO_ABSOLUTE:
-                            Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                        case CUSTOMIZED_ISO_EXPOSURE:
+                            final Range<Integer> isoRange;
+                            if (Build.MODEL.equals("SM-S9010")) {
+                                isoRange = new Range<>(50, 51200);// S22 ISO 50~51200 based on empirical test
+                            } else if (Build.MODEL.equals("SM-F9260")) {
+                                isoRange = new Range<>(50, 12800);// Fold3 ISO 50~12800 based on empirical test
+                            } else {
+                                isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                            }
                             if (!isoRange.contains((int) value)) {
                                 value = isoRange.getLower();
                                 mLowEditText.setText(String.valueOf(isoRange.getLower()));
@@ -357,14 +398,29 @@ public class GenerateDesignFromTemplateActivity extends Activity {
                             }
                             break;
                         case BRACKET_EXPOSURE_TIME_ABSOLUTE:
-                            Range<Long> expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                        case CUSTOMIZED_ISO_EXPOSURE:
+                            final Range<Long> expRange;
+                            if (Build.MODEL.equals("SM-S9010")) {
+                                expRange = new Range<>(12000L, 56000000000L);// S22 shutter 12μs~56s based on empirical test
+                            } else if (Build.MODEL.equals("SM-F9260")) {
+                                expRange = new Range<>(18000L, 30000000000L);// Fold3 shutter 18μs~30s based on empirical test
+                            } else {
+                                expRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                            }
                             if (!expRange.contains((long) value)) {
                                 value = expRange.getUpper();
                                 mHighEditText.setText(String.valueOf(expRange.getUpper()));
                             }
                             break;
                         case BRACKET_ISO_ABSOLUTE:
-                            Range<Integer> isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                            final Range<Integer> isoRange;
+                            if (Build.MODEL.equals("SM-S9010")) {
+                                isoRange = new Range<>(50, 51200);// S22 ISO 50~51200 based on empirical test
+                            } else if (Build.MODEL.equals("SM-F9260")) {
+                                isoRange = new Range<>(50, 12800);// Fold3 ISO 50~12800 based on empirical test
+                            } else {
+                                isoRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                            }
                             if (!isoRange.contains((int) value)) {
                                 value = isoRange.getUpper();
                                 mHighEditText.setText(String.valueOf(isoRange.getUpper()));

@@ -10,6 +10,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Environment;
@@ -427,7 +428,21 @@ public class MainDevCamActivity extends Activity {
 
             Integer rSensitivityVal = mAutoResult.get(CaptureResult.SENSOR_SENSITIVITY);
             if (null != rSensitivityVal) {
-                mSensitivityValueView.setText(rSensitivityVal.toString());
+                if (Build.MODEL.equals("SM-S9010")) { // Based on empirical test, S22 precise ISO.
+                    int empiricalPreciseISO;
+                    if (rSensitivityVal < 950) {
+                        empiricalPreciseISO = rSensitivityVal;
+                    } else if (rSensitivityVal < 1200) {
+                        empiricalPreciseISO = rSensitivityVal * 3 / 4;
+                    } else if (rSensitivityVal < 5000) {
+                        empiricalPreciseISO = rSensitivityVal * 2 / 3;
+                    } else {
+                        empiricalPreciseISO = rSensitivityVal / 2;
+                    }
+                    mSensitivityValueView.setText(rSensitivityVal + "(" + empiricalPreciseISO + ")");
+                } else {
+                    mSensitivityValueView.setText(rSensitivityVal.toString());
+                }
             } else {
                 mSensitivityValueView.setText(R.string.no_value);
             }
@@ -625,7 +640,14 @@ public class MainDevCamActivity extends Activity {
                         break;
                     case BRACKET_EXPOSURE_TIME_ABSOLUTE:
                         Range<Long> expTimeRange = new Range<>((long) lowBound, (long) highBound);
-                        final Range<Long> deviceExpTimeRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                        final Range<Long> deviceExpTimeRange;
+                        if (Build.MODEL.equals("SM-S9010")) {
+                            deviceExpTimeRange = new Range<>(12000L, 56000000000L);// S22 shutter 12μs~56s based on empirical test
+                        } else if (Build.MODEL.equals("SM-F9260")) {
+                            deviceExpTimeRange = new Range<>(18000L, 30000000000L);// S22 shutter 18μs~30+s based on empirical test
+                        } else {
+                            deviceExpTimeRange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE);
+                        }
                         mDesign = CaptureDesign.Creator.exposureTimeBracketAbsolute(deviceExpTimeRange, expTimeRange, nExp);
                         break;
                     case BRACKET_EXPOSURE_TIME_RELATIVE:
@@ -634,12 +656,28 @@ public class MainDevCamActivity extends Activity {
                         break;
                     case BRACKET_ISO_ABSOLUTE:
                         Range<Integer> isoRange = new Range<>((int) lowBound, (int) highBound);
-                        final Range<Integer> deviceISORange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                        final Range<Integer> deviceISORange;
+                        if (Build.MODEL.equals("SM-S9010")) {
+                            deviceISORange = new Range<>(50, 51200);// S22 ISO 50~51200 based on empirical test
+                        } else if (Build.MODEL.equals("SM-F9260")) {
+                            deviceISORange = new Range<>(50, 12800);// Fold3 ISO 50~12800 based on empirical test
+                        } else {
+                            deviceISORange = mCamChars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
+                        }
                         mDesign = CaptureDesign.Creator.isoBracketAbsolute(deviceISORange, isoRange, nExp);
                         break;
                     case BRACKET_ISO_RELATIVE:
                         stopRange = new Range<>(lowBound, highBound);
                         mDesign = CaptureDesign.Creator.isoBracketAroundAuto(stopRange, nExp);
+                        break;
+                    case CUSTOMIZED_ISO_EXPOSURE:
+                        CaptureDesign captureDesign = new CaptureDesign();
+                        Range<Integer> customizedIsoExpo = new Range<>((int) lowBound, (int) highBound);
+                        Exposure temp = new Exposure("ALL_AUTO");
+                        temp.setSensitivity(customizedIsoExpo.getLower());
+                        temp.setExposureTime(customizedIsoExpo.getUpper().longValue());
+                        captureDesign.addExposure(temp);
+                        mDesign = captureDesign;
                         break;
                     default:
                         // do nothing
@@ -1015,7 +1053,9 @@ public class MainDevCamActivity extends Activity {
         Log.v(APP_TAG, "freeImageSaverResources() called.");
 
         mImageReader.close();
-        mImageReaderExtra.close();
+        if (mImageReaderExtra != null) {
+            mImageReaderExtra.close();
+        }
 
         mImageSaverThread.quitSafely();
         try {
