@@ -143,8 +143,8 @@ public class DesignResult {
 
     protected void saveImages() {
         Log.w("tombear", "saveImages Start: " + SystemClock.elapsedRealtime() / 1000);
-//        mCaptureResults.sort((r1, r2) -> (int) (r1.get(CaptureResult.SENSOR_TIMESTAMP) - r2.get(CaptureResult.SENSOR_TIMESTAMP)));
-//        mImages.sort((i1, i2) -> (int) (i1.getTimestamp() - i2.getTimestamp()));
+        mCaptureResults.sort((r1, r2) -> (int) (r1.get(CaptureResult.SENSOR_TIMESTAMP) - r2.get(CaptureResult.SENSOR_TIMESTAMP)));
+        mImages.sort((i1, i2) -> (int) (i1.getTimestamp() - i2.getTimestamp()));
         for (Image image : mImages) {
             for (CaptureResult result : mCaptureResults) {
                 if (image.getTimestamp() == result.get(CaptureResult.SENSOR_TIMESTAMP)) {

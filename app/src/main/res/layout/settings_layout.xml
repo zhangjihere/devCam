@@ -13,6 +13,47 @@
 
         <LinearLayout
             android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center|center_horizontal|right"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:text="Camera Device"
+                android:id="@+id/textViewCD"
+                android:textStyle="bold"
+                android:layout_gravity="center_vertical|left" />
+
+            <RadioGroup
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:id="@+id/CameraDevice"
+                android:gravity="center|center_horizontal|right">
+
+                <RadioButton
+                    android:id="@+id/BackCamera"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:text="Back"
+                    android:checked="true"/>
+
+                <RadioButton
+                    android:id="@+id/FrontCamera"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:text="Front"/>
+
+            </RadioGroup>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
             android:layout_width="600px"
             android:layout_height="wrap_content"
             android:gravity="center|center_horizontal|right"

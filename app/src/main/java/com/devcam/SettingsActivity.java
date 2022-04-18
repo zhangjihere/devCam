@@ -4,11 +4,14 @@ package com.devcam;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.hardware.camera2.CameraMetadata;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.RadioGroup;
 import android.widget.Switch;
+import android.widget.Toast;
 
 public class SettingsActivity extends Activity {
     public final static String APP_TAG = "SettingActivity";
@@ -19,6 +22,7 @@ public class SettingsActivity extends Activity {
     static final String SHOW_FOCUS_DISTANCE = "SHOW_FOCUS_DISTANCE";
     static final String SHOW_FOCAL_LENGTH = "SHOW_FOCAL_LENGTH";
     static final String USE_DELAY_KEY = "USE_DELAY";
+    static final String CAMERA_DEVICE_KEY = "CAMERA_DEVICE";
 
     Button mOKbutton;
     CheckBox mExposureTimeBox;
@@ -27,6 +31,9 @@ public class SettingsActivity extends Activity {
     CheckBox mFocusDistanceBox;
     CheckBox mFocalLengthBox;
     Switch mSwitch;
+    RadioGroup mCameraDevice;
+
+    int presetCameraDeviceCheckedRadio;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,6 +52,7 @@ public class SettingsActivity extends Activity {
         mFocusDistanceBox = findViewById(R.id.focusDistanceCheckBox);
         mFocalLengthBox = findViewById(R.id.focalLengthCheckBox);
         mSwitch = findViewById(R.id.delaySwitch);
+        mCameraDevice = findViewById(R.id.CameraDevice);
 
         SharedPreferences settings = getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
 
@@ -54,6 +62,12 @@ public class SettingsActivity extends Activity {
         mFocusDistanceBox.setChecked(settings.getBoolean(SHOW_FOCUS_DISTANCE, true));
         mFocalLengthBox.setChecked(settings.getBoolean(SHOW_FOCAL_LENGTH, false)); // often fixed
         mSwitch.setChecked(settings.getBoolean(USE_DELAY_KEY, false));
+        if (settings.getInt(CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK) == CameraMetadata.LENS_FACING_BACK) {
+            mCameraDevice.check(R.id.BackCamera);
+        } else {
+            mCameraDevice.check(R.id.FrontCamera);
+        }
+        presetCameraDeviceCheckedRadio = mCameraDevice.getCheckedRadioButtonId();
 
         // Set up the "OK" Button to send settings back to main function
         mOKbutton = findViewById(R.id.okSettingsButton);
@@ -65,6 +79,15 @@ public class SettingsActivity extends Activity {
             editor.putBoolean(SHOW_FOCAL_LENGTH, mFocalLengthBox.isChecked());
             editor.putBoolean(SHOW_FOCUS_DISTANCE, mFocusDistanceBox.isChecked());
             editor.putBoolean(USE_DELAY_KEY, mSwitch.isChecked());
+            final int newCameraDeviceCheckedRadio = mCameraDevice.getCheckedRadioButtonId();
+            if (newCameraDeviceCheckedRadio == R.id.BackCamera) {
+                editor.putInt(CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK);
+            } else {
+                editor.putInt(CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_FRONT);
+            }
+            if (presetCameraDeviceCheckedRadio != newCameraDeviceCheckedRadio) {
+                Toast.makeText(this, "Restart APP to Enable Camera Changed!", Toast.LENGTH_LONG).show();
+            }
             editor.apply();
             finish();
         });

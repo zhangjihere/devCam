@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -109,6 +110,8 @@ public class MainDevCamActivity extends Activity {
     private boolean mInadequateCameraFlag;
 
     boolean mUseDelay = false; // flag reflecting state of the delay switch
+    int mSelectedCameraDevice; // selected CameraDevice Back/Front
+    private int fileNoByDesign;
 
     // This simply holds the user options for displaying parameters. They are loaded in onResume().
     ExposureArrayAdapter.DisplayOptionBundle mDisplayOptions = new ExposureArrayAdapter.DisplayOptionBundle();
@@ -213,12 +216,11 @@ public class MainDevCamActivity extends Activity {
             final String filename;
             // NOTES: When outputformat is RAW_SENSOR, it will estimate which .jpg or .dng file comes.
             if (!(selectedImageFormat == ImageFormat.RAW_SENSOR & fileType.equals(".jpg"))) {
-                fileNameNo = mWrittenFilenames.size() + 1;
-                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+                filename = String.format(filenameFormat, designName, fileNoByDesign + 1, timestamp, fileType);
+                fileNoByDesign++;
                 mWrittenFilenames.add(filename);
             } else {
-                fileNameNo = mWrittenFilenames.size();
-                filename = String.format(filenameFormat, designName, fileNameNo, timestamp, fileType);
+                filename = String.format(filenameFormat, designName, fileNoByDesign, timestamp, fileType);
             }
 
             File IM_SAVE_DIR = new File(CAPTURE_DIR, designName);
@@ -509,7 +511,10 @@ public class MainDevCamActivity extends Activity {
         // (That width being half of the total display width). Sizing is done in the
         // SurfaceHolder.Callback onCreate() method.
 
-        mCamChars = DevCam.getCameraCharacteristics(this);
+        SharedPreferences settings = this.getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
+        mSelectedCameraDevice = settings.getInt(SettingsActivity.CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK);
+
+        mCamChars = DevCam.getCameraCharacteristics(this, mSelectedCameraDevice);
 
         mStreamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         // This camera can produce only certain image formats and certain
@@ -536,7 +541,7 @@ public class MainDevCamActivity extends Activity {
         // access/initialize them.
         setupButtonsAndViews();
 
-        mDevCam = DevCam.getInstance(this, mDevCamCallback);
+        mDevCam = DevCam.getInstance(this, mDevCamCallback, mSelectedCameraDevice);
     }
 
     private void createDIR() {
@@ -627,6 +632,7 @@ public class MainDevCamActivity extends Activity {
                 GenerateDesignFromTemplateActivity.DesignTemplate template = GenerateDesignFromTemplateActivity.DesignTemplate.getTemplateByIndex(templateInd);
                 Log.v(APP_TAG, "Design Template: " + template);
 
+                fileNoByDesign = 0;
                 switch (template) {
                     case BURST:
                         mDesign = CaptureDesign.Creator.burst(nExp);

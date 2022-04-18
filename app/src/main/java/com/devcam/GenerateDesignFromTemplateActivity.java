@@ -16,6 +16,7 @@ package com.devcam;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -477,12 +478,13 @@ public class GenerateDesignFromTemplateActivity extends Activity {
         // Get the camera metadata to use in case the user wants to do a Template based on absolute
         // values, so that they know the actual device capability bounds
         CameraManager cm = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        SharedPreferences settings = this.getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
+        final int selectedCameraDevice = settings.getInt(SettingsActivity.CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK);
         try {
             String[] deviceList = cm.getCameraIdList();
             for (String device : deviceList) {
                 mCamChars = cm.getCameraCharacteristics(device);
-                if (mCamChars.get(CameraCharacteristics.LENS_FACING)
-                        == CameraMetadata.LENS_FACING_BACK) {
+                if (mCamChars.get(CameraCharacteristics.LENS_FACING) == selectedCameraDevice) {
                     break;
                 }
             }

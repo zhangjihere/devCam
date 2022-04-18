@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -169,8 +170,8 @@ public class RemoteCaptureActivity extends Activity {
 
         textView = findViewById(R.id.remoteTextView);
 
-        mDevCam = DevCam.getInstance(this, mDevCamStateCallback);
-        mCamChars = DevCam.getCameraCharacteristics(this);
+        mDevCam = DevCam.getInstance(this, mDevCamStateCallback, CameraMetadata.LENS_FACING_BACK);
+        mCamChars = DevCam.getCameraCharacteristics(this, CameraMetadata.LENS_FACING_BACK);
         mStreamMap = mCamChars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
 
         mContext = this;

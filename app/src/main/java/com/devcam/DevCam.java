@@ -51,6 +51,7 @@ final public class DevCam {
 
     private final Context mContext;
     private String mBackCamId;
+    private final int mSelectedCameraDevice;
 
     // Keep track of a callback handler the user must have created.
     private final DevCamListener mRegisteredCallback;
@@ -297,10 +298,11 @@ final public class DevCam {
      * for setting up the output Surfaces before registering them wth the DevCam. This can be called
      * at any time.</p>
      *
-     * @param context The Context of the application, usually just the Activity itself.
+     * @param context              The Context of the application, usually just the Activity itself.
+     * @param selectedCameraDevice Selected camera device to capture.
      * @return CameraCharacteristics instance for the camera to be used
      */
-    static public CameraCharacteristics getCameraCharacteristics(Context context) {
+    static public CameraCharacteristics getCameraCharacteristics(Context context, int selectedCameraDevice) {
         CameraManager cm = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         CameraCharacteristics camChars = null;
         try {
@@ -309,8 +311,7 @@ final public class DevCam {
             String[] deviceList = cm.getCameraIdList();
             for (String backCamId : deviceList) {
                 camChars = cm.getCameraCharacteristics(backCamId);
-                if (camChars.get(CameraCharacteristics.LENS_FACING)
-                        == CameraMetadata.LENS_FACING_BACK) {
+                if (camChars.get(CameraCharacteristics.LENS_FACING) == selectedCameraDevice) {
                     break;
                 }
             }
@@ -390,13 +391,14 @@ final public class DevCam {
      * Generate and return a DevCam instance for the main Activity to use. DevCam uses a singular-
      * instance model and future calls to this function will only return the same DevCam reference.
      *
-     * @param context  The Context of the application, typically the Activity itself.
-     * @param callback A DevCam.StateCallback instance to register with the DevCam
+     * @param context              The Context of the application, typically the Activity itself.
+     * @param callback             A DevCam.StateCallback instance to register with the DevCam
+     * @param selectedCameraDevice selected camera device to capture
      * @return A singular instance of a DevCam.
      */
-    static public DevCam getInstance(Context context, DevCamListener callback) {
+    static public DevCam getInstance(Context context, DevCamListener callback, int selectedCameraDevice) {
         if (mInstance == null) {
-            mInstance = new DevCam(context, callback);
+            mInstance = new DevCam(context, callback, selectedCameraDevice);
             Log.v(APP_TAG, " * New DevCam instance created! *");
         } else {
             Log.v(APP_TAG, " * Returning old DevCam instance. *");
@@ -588,12 +590,14 @@ final public class DevCam {
      * access CameraManager, and a DevCamListener in order to know where to send relevant
      * information, since a DevCam cannot exist in a void.
      *
-     * @param context  Android Context
-     * @param callback DevCamListener
+     * @param context              Android Context
+     * @param callback             DevCamListener
+     * @param selectedCameraDevice selected camera device
      */
-    private DevCam(Context context, DevCamListener callback) {
+    private DevCam(Context context, DevCamListener callback, int selectedCameraDevice) {
         mContext = context;
         mRegisteredCallback = callback;
+        mSelectedCameraDevice = selectedCameraDevice;
 
         // Find the ID for the camera we are going to use, but don't try to access it yet.
         CameraManager cm = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
@@ -604,8 +608,7 @@ final public class DevCam {
             for (String s : deviceList) {
                 mBackCamId = s;
                 mCamChars = cm.getCameraCharacteristics(mBackCamId);
-                if (mCamChars.get(CameraCharacteristics.LENS_FACING)
-                        == CameraMetadata.LENS_FACING_BACK) {
+                if (mCamChars.get(CameraCharacteristics.LENS_FACING) == selectedCameraDevice) {
                     break;
                 }
             }
