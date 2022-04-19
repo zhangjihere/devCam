@@ -12,6 +12,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.TonemapCurve;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
@@ -545,6 +546,12 @@ final public class DevCam {
                 }
             }
 
+            if (mSelectedCameraDevice == CameraMetadata.LENS_FACING_FRONT) {
+                if (Build.MODEL.equals("SM-F9260")) {
+                    mNeedsAF = false;
+                }
+            }
+
             // If the Exposures don't require ANY Auto information, i.e. if all parameter values
             // were explicit, simply capture the burst.
             if (withoutVariables == mDesign.getExposures().size()) {
@@ -624,6 +631,14 @@ final public class DevCam {
                     mHasPostProcessingControl = true;
                 }
             }
+
+            if (mSelectedCameraDevice == CameraMetadata.LENS_FACING_FRONT) {
+                if (Build.MODEL.equals("SM-F9260")) {
+                    mHasManualSensor = true;
+                    mHasPostProcessingControl = true;
+                }
+            }
+
             if (!mHasManualSensor) {
                 mRegisteredCallback.onCameraDeviceError(INADEQUATE_CAMERA);
                 // SOMETHING ELSE HERE TO MAKE SURE CAMERA ISN'T ACTUALLY USED? Sloppy, fix this
