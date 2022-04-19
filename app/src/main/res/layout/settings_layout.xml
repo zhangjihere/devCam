@@ -101,6 +101,51 @@
             android:orientation="horizontal"
             android:layout_width="600px"
             android:layout_height="wrap_content"
+            android:gravity="center|center_horizontal|right"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:text="5 Bursts in 1 Batch"
+                android:id="@+id/BurstBatch"
+                android:textStyle="bold"
+                android:layout_marginRight="10dp"
+                android:layout_marginLeft="0dp"
+                android:layout_gravity="center_vertical|left" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:text="Off"
+                android:id="@+id/BurstBatch_Off" />
+
+            <Switch
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textOff="Off"
+                android:textOn="On"
+                android:id="@+id/BurstBatch_Switch"
+                android:switchMinWidth="50dp"
+                android:layout_marginLeft="10px"
+                android:layout_marginRight="10px"
+                android:showText="false" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:text="On"
+                android:id="@+id/BurstBatch_On" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="600px"
+            android:layout_height="wrap_content"
             android:gravity="right">
 
             <TextView

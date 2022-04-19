@@ -11,6 +11,8 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -109,8 +111,11 @@ public class MainDevCamActivity extends Activity {
 
     private boolean mInadequateCameraFlag;
 
-    boolean mUseDelay = false; // flag reflecting state of the delay switch
     int mSelectedCameraDevice; // selected CameraDevice Back/Front
+    boolean mUseDelay = false; // flag reflecting state of the delay switch
+    boolean enableBurstBatch = false; // flag reflecting state of the burst batch switch
+    private int numOfBurst;
+    public static final int BURST_BATCH_TOTAL = 5;
     private int fileNoByDesign;
 
     // This simply holds the user options for displaying parameters. They are loaded in onResume().
@@ -318,9 +323,44 @@ public class MainDevCamActivity extends Activity {
             mMainHandler.post(() -> {
                 mDesignResult.checkIfComplete();
                 mDesignResult.saveImages();
+
+                Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                RingtoneManager.getRingtone(getApplicationContext(), notification).play();
+
+                if (enableBurstBatch) {
+                    numOfBurst++;
+                    if (numOfBurst <= BURST_BATCH_TOTAL) {
+                        final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
+                        mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener, selectedImageFormat);
+                        mWrittenFilenames = new ArrayList<>();
+                        if (selectedImageFormat == ImageFormat.RAW_SENSOR) { // DNG(RAW) file and extra JPEG file
+                            mNumImagesLeftToSave = 2 * mDesign.getExposures().size();
+                        } else {
+                            mNumImagesLeftToSave = mDesign.getExposures().size();
+                        }
+
+                        final CountDownTimer cdt = new CountDownTimer(5000, 1000) {
+                            @Override
+                            public void onTick(long millisUntilFinished) {
+                                mCaptureButton.setText(millisUntilFinished / 1000 + " s");
+                            }
+
+                            @Override
+                            public void onFinish() {
+                                mDevCam.capture(mDesign);
+                                mCapturingDesignTextView.setText("Capturing");
+                                mCapturingDesignTextView.setVisibility(View.VISIBLE);
+
+                                mCaptureButton.setVisibility(View.INVISIBLE);
+                                mCaptureButton.setText(R.string.captureText);
+                            }
+                        };
+                        cdt.start();
+                    }
+                }
                 // Replace old design now that it is done
-                mDesign = mNextDesign;
-                mDesignResult = null;
+//                mDesign = mNextDesign;
+//                mDesignResult = null;
 
                 updateDesignViews();
             });
@@ -573,6 +613,7 @@ public class MainDevCamActivity extends Activity {
         // Load the user settings for the use of delay and the display of parameters
         SharedPreferences settings = this.getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
         mUseDelay = settings.getBoolean(SettingsActivity.USE_DELAY_KEY, false);
+        enableBurstBatch = settings.getBoolean(SettingsActivity.BURST_BATCH_KEY, false);
         mDisplayOptions.showExposureTime = settings.getBoolean(SettingsActivity.SHOW_EXPOSURE_TIME, true);
         mDisplayOptions.showAperture = settings.getBoolean(SettingsActivity.SHOW_APERTURE, false);
         mDisplayOptions.showSensitivity = settings.getBoolean(SettingsActivity.SHOW_SENSITIVITY, true);
@@ -860,12 +901,18 @@ public class MainDevCamActivity extends Activity {
                     // CaptureDesign class actually handles all of the commands to
                     // the camera.
 
-                    final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
-                    synchronized (this) {
-                        mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener, selectedImageFormat);
+                    if (enableBurstBatch) {
+                        numOfBurst = 1;
                     }
+                    final Integer selectedImageFormat = mOutputFormats.get(mOutputFormatInd);
+                    mDesignResult = new DesignResult(mDesign.getExposures().size(), mOnCaptureAvailableListener, selectedImageFormat);
                     Log.v(APP_TAG, "1111mDesignResult allocated.1111");
                     mWrittenFilenames = new ArrayList<>();
+                    if (selectedImageFormat == ImageFormat.RAW_SENSOR) { // DNG(RAW) file and extra JPEG file
+                        mNumImagesLeftToSave = 2 * mDesign.getExposures().size();
+                    } else {
+                        mNumImagesLeftToSave = mDesign.getExposures().size();
+                    }
 
                     // But first, check to see if we should use a delay timer or not.
                     long delay = (mUseDelay) ? 5000 : 0;
@@ -875,13 +922,6 @@ public class MainDevCamActivity extends Activity {
                         }
 
                         public void onFinish() {
-
-                            if (selectedImageFormat == ImageFormat.RAW_SENSOR) { // DNG(RAW) file and extra JPEG file
-                                mNumImagesLeftToSave = 2 * mDesign.getExposures().size();
-                            } else {
-                                mNumImagesLeftToSave = mDesign.getExposures().size();
-                            }
-
                             // Make a new CaptureDesign based on the current one, with a new name, so the current
                             // results don't get overwritten if button pushed again.
                             // Note: Do this first, so when the Variable parameters get fixed during capture, they don't
@@ -889,15 +929,12 @@ public class MainDevCamActivity extends Activity {
                             mNextDesign = new CaptureDesign(mDesign);
 
                             mDevCam.capture(mDesign);
-
-
                             // inform user sequence is being captured
                             mCapturingDesignTextView.setText("Capturing");
                             mCapturingDesignTextView.setVisibility(View.VISIBLE);
 
                             mCaptureButton.setVisibility(View.INVISIBLE);
                             mCaptureButton.setText(R.string.captureText);
-
                         }
                     };
                     countDownTimer.start();
@@ -1058,7 +1095,9 @@ public class MainDevCamActivity extends Activity {
     private void freeImageSaverResources() {
         Log.v(APP_TAG, "freeImageSaverResources() called.");
 
-        mImageReader.close();
+        if (mImageReader != null) {
+            mImageReader.close();
+        }
         if (mImageReaderExtra != null) {
             mImageReaderExtra.close();
         }

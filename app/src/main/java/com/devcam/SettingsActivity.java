@@ -23,6 +23,7 @@ public class SettingsActivity extends Activity {
     static final String SHOW_FOCAL_LENGTH = "SHOW_FOCAL_LENGTH";
     static final String USE_DELAY_KEY = "USE_DELAY";
     static final String CAMERA_DEVICE_KEY = "CAMERA_DEVICE";
+    static final String BURST_BATCH_KEY = "BURST_BATCH";
 
     Button mOKbutton;
     CheckBox mExposureTimeBox;
@@ -32,6 +33,7 @@ public class SettingsActivity extends Activity {
     CheckBox mFocalLengthBox;
     Switch mSwitch;
     RadioGroup mCameraDevice;
+    Switch mBatchBurstSwitch;
 
     int presetCameraDeviceCheckedRadio;
 
@@ -53,6 +55,7 @@ public class SettingsActivity extends Activity {
         mFocalLengthBox = findViewById(R.id.focalLengthCheckBox);
         mSwitch = findViewById(R.id.delaySwitch);
         mCameraDevice = findViewById(R.id.CameraDevice);
+        mBatchBurstSwitch = findViewById(R.id.BurstBatch_Switch);
 
         SharedPreferences settings = getSharedPreferences(MainDevCamActivity.class.getName(), Context.MODE_MULTI_PROCESS);
 
@@ -62,6 +65,7 @@ public class SettingsActivity extends Activity {
         mFocusDistanceBox.setChecked(settings.getBoolean(SHOW_FOCUS_DISTANCE, true));
         mFocalLengthBox.setChecked(settings.getBoolean(SHOW_FOCAL_LENGTH, false)); // often fixed
         mSwitch.setChecked(settings.getBoolean(USE_DELAY_KEY, false));
+        mBatchBurstSwitch.setChecked(settings.getBoolean(BURST_BATCH_KEY, false));
         if (settings.getInt(CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK) == CameraMetadata.LENS_FACING_BACK) {
             mCameraDevice.check(R.id.BackCamera);
         } else {
@@ -79,6 +83,7 @@ public class SettingsActivity extends Activity {
             editor.putBoolean(SHOW_FOCAL_LENGTH, mFocalLengthBox.isChecked());
             editor.putBoolean(SHOW_FOCUS_DISTANCE, mFocusDistanceBox.isChecked());
             editor.putBoolean(USE_DELAY_KEY, mSwitch.isChecked());
+            editor.putBoolean(BURST_BATCH_KEY, mBatchBurstSwitch.isChecked());
             final int newCameraDeviceCheckedRadio = mCameraDevice.getCheckedRadioButtonId();
             if (newCameraDeviceCheckedRadio == R.id.BackCamera) {
                 editor.putInt(CAMERA_DEVICE_KEY, CameraMetadata.LENS_FACING_BACK);
